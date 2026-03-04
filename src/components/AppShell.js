@@ -1,8 +1,8 @@
 'use client';
 
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { Logo } from "./Logo";
 
 const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-700 border-red-200",
@@ -11,10 +11,10 @@ const PRIORITY_COLORS = {
 };
 
 const CATEGORY_COLORS = {
-  work: "#3b82f6",
-  study: "#a855f7",
-  personal: "#10b981",
-  health: "#ec4899",
+  work: "bg-blue-100 text-blue-800",
+  study: "bg-purple-100 text-purple-800",
+  personal: "bg-emerald-100 text-emerald-800",
+  health: "bg-pink-100 text-pink-800",
 };
 
 const VIEW_MODES = [
@@ -32,344 +32,24 @@ const PRIORITY_OPTIONS = [
 ];
 
 const CATEGORY_OPTIONS = [
-  { id: "work", label: "Работа", color: CATEGORY_COLORS.work },
-  { id: "study", label: "Учёба", color: CATEGORY_COLORS.study },
-  { id: "personal", label: "Личные дела", color: CATEGORY_COLORS.personal },
-  { id: "health", label: "Здоровье", color: CATEGORY_COLORS.health },
+  { id: "work", label: "Работа" },
+  { id: "study", label: "Учёба" },
+  { id: "personal", label: "Личные дела" },
+  { id: "health", label: "Здоровье" },
 ];
 
-function Logo({ align = "center" }) {
-  const isCenter = align === "center";
-
-  return (
-    <div
-      className={`flex flex-col gap-2 ${
-        isCenter ? "items-center text-center" : "items-start text-left"
-      }`}
-    >
-      <div className="inline-flex items-center justify-center">
-        <Image
-          src="/task-logo.png"
-          alt="Task Planner logo"
-          width={62}
-          height={32}
-          className="h-8 w-auto"
-          priority
-        />
-      </div>
-      <div>
-        <div className="text-sm font-semibold tracking-tight text-slate-900">
-          Task Planner
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function Home() {
-  const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [authMode, setAuthMode] = useState("login"); // 'login' | 'register'
-  const [activeSection, setActiveSection] = useState("dashboard"); // 'dashboard' | 'tasks' | 'profile' | 'settings'
-
-  useEffect(() => {
-    if (!supabase) {
-      setAuthChecked(true);
-      return;
-    }
-
-    let ignore = false;
-
-    async function loadUser() {
-      const { data, error } = await supabase.auth.getUser();
-      if (!ignore) {
-        if (!error && data?.user) {
-          setUser(data.user);
-        }
-        setAuthChecked(true);
-      }
-    }
-
-    loadUser();
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!ignore) {
-          setUser(session?.user ?? null);
-        }
-      }
-    );
-
-    return () => {
-      ignore = true;
-      subscription?.subscription?.unsubscribe();
-    };
-  }, []);
-
-  const isAuthenticated = !!user;
-
-  if (!authChecked && supabase) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-2xl bg-white px-6 py-4 text-sm text-slate-500 shadow">
-          Загрузка...
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <AuthScreen
-        mode={authMode}
-        onModeChange={setAuthMode}
-        onAuthenticated={(nextUser) => setUser(nextUser)}
-      />
-    );
-  }
-
-  return (
-    <AppShell
-      user={user}
-      activeSection={activeSection}
-      onSectionChange={setActiveSection}
-    />
-  );
-}
-
-function AuthScreen({ mode, onModeChange, onAuthenticated }) {
-  const isLogin = mode === "login";
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!supabase) {
-      onAuthenticated(null);
-      return;
-    }
-
-    setError("");
-    setIsLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get("name")?.toString().trim();
-    const email = formData.get("email")?.toString().trim();
-    const password = formData.get("password")?.toString() ?? "";
-    const passwordConfirm =
-      formData.get("passwordConfirm")?.toString() ?? "";
-
-    try {
-      if (!email || !password) {
-        throw new Error("Заполните email и пароль.");
-      }
-
-      if (!isLogin && password !== passwordConfirm) {
-        throw new Error("Пароли не совпадают.");
-      }
-
-      if (!isLogin && !name) {
-        throw new Error("Заполните имя.");
-      }
-
-      if (!supabase) {
-        throw new Error("Supabase не инициализирован.");
-      }
-
-      if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        onAuthenticated(data.user);
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name,
-            },
-          },
-        });
-        if (error) throw error;
-
-        if (!data.user) {
-          throw new Error(
-            "Пользователь зарегистрирован. Проверьте почту и подтвердите аккаунт."
-          );
-        }
-
-        onAuthenticated(data.user);
-      }
-    } catch (err) {
-      setError(err.message ?? "Ошибка авторизации.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
-        <div className="mb-8">
-          <Logo align="center" />
-        </div>
-
-        <div className="mb-6 flex rounded-full bg-slate-100 p-1 text-sm font-medium text-slate-600">
-          <button
-            type="button"
-            onClick={() => onModeChange("login")}
-            className={`flex-1 rounded-full px-3 py-2 transition ${
-              isLogin ? "bg-white text-slate-900 shadow-sm" : ""
-            }`}
-          >
-            Вход
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange("register")}
-            className={`flex-1 rounded-full px-3 py-2 transition ${
-              !isLogin ? "bg-white text-slate-900 shadow-sm" : ""
-            }`}
-          >
-            Регистрация
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-slate-700">
-                Имя
-              </label>
-              <input
-                type="text"
-              name="name"
-                placeholder="Как к вам обращаться"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
-              />
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700">
-              Email
-            </label>
-            <input
-              type="email"
-              required
-              name="email"
-              placeholder="you@example.com"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700">
-              Пароль
-            </label>
-            <input
-              type="password"
-              required
-              name="password"
-              placeholder="Минимум 8 символов"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
-            />
-          </div>
-
-          {!isLogin && (
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-slate-700">
-                Повтор пароля
-              </label>
-              <input
-                type="password"
-                required
-                name="passwordConfirm"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
-              />
-            </div>
-          )}
-
-          {isLogin ? (
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300" />
-                Запомнить меня
-              </label>
-              <button type="button" className="text-sky-600 hover:text-sky-700">
-                Забыли пароль?
-              </button>
-            </div>
-          ) : (
-            <label className="flex items-center gap-2 text-xs text-slate-500">
-              <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300" />
-              Я принимаю условия использования
-            </label>
-          )}
-
-          {error && (
-            <p className="text-xs text-rose-600">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="mt-2 w-full rounded-lg bg-sky-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
-          >
-            {isLoading
-              ? "Обработка..."
-              : isLogin
-              ? "Войти"
-              : "Создать аккаунт"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function AppShell({ user, activeSection, onSectionChange }) {
-  const [openFromDashboard, setOpenFromDashboard] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-
+export function AppShell({ user, activeSection, onSectionChange }) {
   return (
     <div className="flex min-h-screen bg-slate-100 text-slate-900">
       <Sidebar activeSection={activeSection} onSectionChange={onSectionChange} />
-      <div className="relative flex flex-1 flex-col">
-        <Header
-          user={user}
-          onOpenNotifications={() => setShowNotifications(true)}
-        />
+      <div className="flex flex-1 flex-col">
+        <Header user={user} />
         <main className="flex-1 overflow-y-auto px-6 py-6">
-          {activeSection === "dashboard" && (
-            <DashboardView
-              user={user}
-              onCreateTask={() => {
-                onSectionChange("tasks");
-                setOpenFromDashboard(true);
-              }}
-            />
-          )}
-          {activeSection === "tasks" && (
-            <TasksView
-              user={user}
-              openFromDashboard={openFromDashboard}
-              onOpenFromDashboardHandled={() => setOpenFromDashboard(false)}
-            />
-          )}
+          {activeSection === "dashboard" && <DashboardView user={user} />}
+          {activeSection === "tasks" && <TasksView user={user} />}
           {activeSection === "profile" && <ProfileView user={user} />}
           {activeSection === "settings" && <SettingsView />}
         </main>
-
-        {showNotifications && (
-          <NotificationsPanel onClose={() => setShowNotifications(false)} />
-        )}
       </div>
     </div>
   );
@@ -434,7 +114,7 @@ function Sidebar({ activeSection, onSectionChange }) {
   );
 }
 
-function Header({ user, onOpenNotifications }) {
+function Header({ user }) {
   const displayName =
     user?.user_metadata?.full_name || user?.email || "Пользователь";
   const initials = useMemo(() => {
@@ -467,10 +147,7 @@ function Header({ user, onOpenNotifications }) {
         </div>
       </div>
       <div className="ml-4 flex items-center gap-3">
-        <button
-          onClick={onOpenNotifications}
-          className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
-        >
+        <button className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
           🔔
         </button>
         <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
@@ -487,26 +164,7 @@ function Header({ user, onOpenNotifications }) {
   );
 }
 
-function NotificationsPanel({ onClose }) {
-  return (
-    <div className="pointer-events-auto absolute right-4 top-16 z-20 w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-xl">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Уведомления</h3>
-        <button
-          onClick={onClose}
-          className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-        >
-          ✕
-        </button>
-      </div>
-      <p className="text-slate-500">
-        Здесь будут отображаться напоминания о задачах, сроках и событиях.
-      </p>
-    </div>
-  );
-}
-
-function DashboardView({ user, onCreateTask }) {
+function DashboardView({ user }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -515,11 +173,11 @@ function DashboardView({ user, onCreateTask }) {
             Добро пожаловать,{" "}
             {user?.user_metadata?.full_name || user?.email || "друг"}
           </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Сегодня у вас 4 задачи, из них 1 просрочена.
+          </p>
         </div>
-        <button
-          onClick={onCreateTask}
-          className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
-        >
+        <button className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">
           + Новая задача
         </button>
       </div>
@@ -633,7 +291,7 @@ function DashboardCard({ title, value, subtitle, accent }) {
   );
 }
 
-function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
+function TasksView({ user }) {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -643,47 +301,11 @@ function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
   const [sortBy, setSortBy] = useState("dueDateAsc");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [categoryOptions, setCategoryOptions] = useState(CATEGORY_OPTIONS);
 
   const today = new Date().toISOString().slice(0, 10);
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-
-  // подгружаем сохранённые пользовательские категории из localStorage
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem("taskPlannerCategories");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) {
-          setCategoryOptions(parsed);
-        }
-      }
-    } catch {
-      // игнорируем ошибки парсинга
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        "taskPlannerCategories",
-        JSON.stringify(categoryOptions)
-      );
-    } catch {
-      // игнорируем ошибки записи
-    }
-  }, [categoryOptions]);
-
-  // авто-открытие модалки при переходе с дашборда
-  useEffect(() => {
-    if (openFromDashboard) {
-      handleOpenCreate();
-      onOpenFromDashboardHandled?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openFromDashboard]);
 
   useEffect(() => {
     if (!supabase || !user) {
@@ -843,9 +465,7 @@ function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
         // eslint-disable-next-line no-console
         console.error("Не удалось обновить задачу:", error.message);
       } else if (data) {
-        setTasks((prev) =>
-          prev.map((t) => (t.id === data.id ? data : t))
-        );
+        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
       }
     } else {
       const { data, error } = await supabase
@@ -909,7 +529,7 @@ function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
             className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
           >
             <option value="all">Все</option>
-            {categoryOptions.map((cat) => (
+            {CATEGORY_OPTIONS.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.label}
               </option>
@@ -1016,26 +636,18 @@ function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                      {(() => {
-                        const cat =
-                          categoryOptions.find(
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
+                        <span
+                          className={`mr-1 inline-flex h-1.5 w-1.5 rounded-full ${
+                            CATEGORY_COLORS[task.category]
+                          }`}
+                        />
+                        {
+                          CATEGORY_OPTIONS.find(
                             (c) => c.id === task.category
-                          ) || {};
-                        return (
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
-                            <span
-                              className="mr-1 inline-flex h-1.5 w-1.5 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  cat.color ||
-                                  CATEGORY_COLORS[task.category] ||
-                                  "#64748b",
-                              }}
-                            />
-                            {cat.label || task.category || "Без категории"}
-                          </span>
-                        );
-                      })()}
+                          )?.label
+                        }
+                      </span>
                       <span>·</span>
                       <span
                         className={
@@ -1077,13 +689,6 @@ function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
       {isModalOpen && (
         <TaskModal
           initialTask={editingTask}
-          categoryOptions={categoryOptions}
-          onAddCategory={(cat) =>
-            setCategoryOptions((prev) => {
-              if (prev.some((c) => c.id === cat.id)) return prev;
-              return [...prev, cat];
-            })
-          }
           onClose={() => {
             setIsModalOpen(false);
             setEditingTask(null);
@@ -1095,13 +700,7 @@ function TasksView({ user, openFromDashboard, onOpenFromDashboardHandled }) {
   );
 }
 
-function TaskModal({
-  initialTask,
-  onClose,
-  onSave,
-  categoryOptions,
-  onAddCategory,
-}) {
+function TaskModal({ initialTask, onClose, onSave }) {
   const [title, setTitle] = useState(initialTask?.title || "");
   const [description, setDescription] = useState(
     initialTask?.description || ""
@@ -1112,44 +711,11 @@ function TaskModal({
   const [priority, setPriority] = useState(initialTask?.priority || "medium");
   const [category, setCategory] = useState(initialTask?.category || "work");
   const [completed, setCompleted] = useState(initialTask?.completed || false);
-  const [isNewCategory, setIsNewCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryColor, setNewCategoryColor] = useState("#3b82f6");
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!title.trim()) return;
-    let finalCategory = category;
-
-    if (isNewCategory && newCategoryName.trim()) {
-      const baseId = newCategoryName
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .slice(0, 32);
-      let uniqueId = baseId || "custom";
-      let suffix = 1;
-      while (categoryOptions.some((c) => c.id === uniqueId)) {
-        uniqueId = `${baseId || "custom"}-${suffix++}`;
-      }
-
-      const newCat = {
-        id: uniqueId,
-        label: newCategoryName.trim(),
-        color: newCategoryColor,
-      };
-      onAddCategory?.(newCat);
-      finalCategory = newCat.id;
-    }
-
-    onSave({
-      title,
-      description,
-      dueDate,
-      priority,
-      category: finalCategory,
-      completed,
-    });
+    onSave({ title, description, dueDate, priority, category, completed });
   }
 
   return (
@@ -1229,44 +795,16 @@ function TaskModal({
                 Категория
               </label>
               <select
-                value={isNewCategory ? "__new" : category}
-                onChange={(e) => {
-                  if (e.target.value === "__new") {
-                    setIsNewCategory(true);
-                  } else {
-                    setIsNewCategory(false);
-                    setCategory(e.target.value);
-                  }
-                }}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
               >
-                {categoryOptions.map((cat) => (
+                {CATEGORY_OPTIONS.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.label}
                   </option>
                 ))}
-                <option value="__new">Новая категория…</option>
               </select>
-              {isNewCategory && (
-                <div className="mt-2 flex flex-col gap-2 text-xs text-slate-600">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Название категории"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs outline-none ring-sky-500 focus:ring-2"
-                  />
-                  <div className="flex items-center gap-2">
-                    <span>Цвет:</span>
-                    <input
-                      type="color"
-                      value={newCategoryColor}
-                      onChange={(e) => setNewCategoryColor(e.target.value)}
-                      className="h-6 w-10 cursor-pointer rounded border border-slate-200 bg-transparent p-0"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
             {initialTask && (
               <div className="flex items-center gap-2 pt-6">
@@ -1438,6 +976,7 @@ function SettingsView() {
             <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2">
               <option>Светлая</option>
               <option>Тёмная</option>
+              <option>Системная</option>
             </select>
           </div>
           <div className="space-y-1">
@@ -1454,11 +993,17 @@ function SettingsView() {
         <div className="space-y-2 pt-2">
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Скрывать выполненные задачи по умолчанию</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Группировать задачи по дате</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
         </div>
       </div>
@@ -1468,47 +1013,56 @@ function SettingsView() {
         <div className="space-y-2">
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Email-уведомления о предстоящих задачах</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Напоминать за 1 день до дедлайна</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Напоминать за 1 час до дедлайна</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
         </div>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Безопасность</h3>
+      <div className="space-y-4 rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm shadow-sm">
+        <h3 className="text-sm font-semibold text-rose-800">Безопасность</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-rose-900">
               Старый пароль
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm outline-none ring-rose-400 focus:ring-2"
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-rose-900">
               Новый пароль
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm outline-none ring-rose-400 focus:ring-2"
             />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-rose-900">
               Подтверждение нового пароля
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm outline-none ring-rose-400 focus:ring-2"
             />
           </div>
         </div>
