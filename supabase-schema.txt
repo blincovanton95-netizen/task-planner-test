@@ -1,0 +1,50 @@
+Предлагаемая структура таблиц Supabase для приложения Task Planner.
+
+1) Таблица profiles
+-------------------
+id           uuid        PK, совпадает с auth.users.id
+email        text        уникальный email (из auth)
+full_name    text        имя пользователя
+language     text        код языка, например 'ru', 'en'
+timezone     text        часовой пояс, например 'Europe/Moscow'
+created_at   timestamptz DEFAULT now()
+updated_at   timestamptz DEFAULT now()
+
+Пример SQL:
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text unique,
+  full_name text,
+  language text default 'ru',
+  timezone text default 'Europe/Moscow',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+2) Таблица tasks (уже используется в коде)
+-----------------------------------------
+id          uuid primary key default gen_random_uuid()
+user_id     uuid not null references auth.users(id) on delete cascade
+title       text not null
+description text
+dueDate     date not null
+priority    text not null check (priority in ('high','medium','low'))
+category    text not null
+completed   boolean not null default false
+created_at  timestamptz default now()
+updated_at  timestamptz default now()
+
+Пример SQL:
+create table if not exists public.tasks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  description text,
+  "dueDate" date not null,
+  priority text not null check (priority in ('high','medium','low')),
+  category text not null,
+  completed boolean not null default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+

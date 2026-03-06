@@ -29,4 +29,3 @@ export function Logo({ align = "center" }) {
     </div>
   );
 }
-
