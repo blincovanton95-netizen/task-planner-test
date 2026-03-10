@@ -24,6 +24,9 @@ export function ProfileView({ user }: ProfileViewProps) {
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [totalTasks, setTotalTasks] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
+  const [completedWeek, setCompletedWeek] = useState(0);
 
   const displayName =
     profile.full_name || user?.user_metadata?.full_name || user?.email || "Пользователь";
@@ -61,6 +64,55 @@ export function ProfileView({ user }: ProfileViewProps) {
     }
 
     loadProfile();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
+
+  // Статистика продуктивности по задачам
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    let ignore = false;
+
+    async function loadStats() {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("completed, dueDate")
+        .eq("user_id", user.id);
+
+      if (ignore) return;
+
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error("Не удалось загрузить статистику задач:", error.message);
+        return;
+      }
+
+      const rows = (data as { completed: boolean; dueDate: string | null }[]) ?? [];
+      const total = rows.length;
+      const completed = rows.filter((t) => t.completed).length;
+
+      const today = new Date();
+      const weekAgo = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() - 7
+      );
+
+      const completedInWeek = rows.filter((t) => {
+        if (!t.completed || !t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        return d >= weekAgo && d <= today;
+      }).length;
+
+      setTotalTasks(total);
+      setCompletedTasks(completed);
+      setCompletedWeek(completedInWeek);
+    }
+
+    loadStats();
 
     return () => {
       ignore = true;
@@ -207,19 +259,23 @@ export function ProfileView({ user }: ProfileViewProps) {
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <div>
             <div className="text-xs text-slate-500">Всего задач</div>
-            <div className="mt-1 text-lg font-semibold text-slate-900">24</div>
+            <div className="mt-1 text-lg font-semibold text-slate-900">
+              {totalTasks}
+            </div>
           </div>
           <div>
             <div className="text-xs text-slate-500">Выполнено</div>
             <div className="mt-1 text-lg font-semibold text-emerald-600">
-              18
+              {completedTasks}
             </div>
           </div>
           <div>
             <div className="text-xs text-slate-500">
               Выполнено за последнюю неделю
             </div>
-            <div className="mt-1 text-lg font-semibold text-sky-600">12</div>
+            <div className="mt-1 text-lg font-semibold text-sky-600">
+              {completedWeek}
+            </div>
           </div>
         </div>
       </div>

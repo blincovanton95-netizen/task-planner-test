@@ -12,11 +12,15 @@ interface SettingsViewProps {
 type ProfileSettings = {
   language: string;
   timezone: string;
+  notifyBeforeDay: boolean;
+  notifyBeforeHour: boolean;
 };
 
 const DEFAULT_SETTINGS: ProfileSettings = {
   language: "ru",
   timezone: "Europe/Moscow",
+  notifyBeforeDay: false,
+  notifyBeforeHour: false,
 };
 
 export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
@@ -40,6 +44,8 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
           setSettings({
             language: data.language || DEFAULT_SETTINGS.language,
             timezone: data.timezone || DEFAULT_SETTINGS.timezone,
+            notifyBeforeDay: DEFAULT_SETTINGS.notifyBeforeDay,
+            notifyBeforeHour: DEFAULT_SETTINGS.notifyBeforeHour,
           });
         }
       }
@@ -51,6 +57,64 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
       ignore = true;
     };
   }, [user]);
+
+  // загружаем настройки уведомлений из user_settings
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    let ignore = false;
+
+    async function loadUserSettings() {
+      const { data, error } = await supabase
+        .from("user_settings")
+        .select("notify_before_day, notify_before_hour")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (ignore) return;
+
+      if (!error && data) {
+        setSettings((prev) => ({
+          ...prev,
+          notifyBeforeDay: !!(data as any).notify_before_day,
+          notifyBeforeHour: !!(data as any).notify_before_hour,
+        }));
+      }
+    }
+
+    loadUserSettings();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
+
+  async function updateUserSettings(partial: {
+    notify_before_day?: boolean;
+    notify_before_hour?: boolean;
+  }) {
+    if (!supabase || !user) return;
+
+    const payload = {
+      user_id: user.id,
+      notify_before_day:
+        partial.notify_before_day ?? settings.notifyBeforeDay,
+      notify_before_hour:
+        partial.notify_before_hour ?? settings.notifyBeforeHour,
+    };
+
+    const { error } = await supabase
+      .from("user_settings")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "Не удалось сохранить настройки уведомлений:",
+        error.message
+      );
+    }
+  }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -172,11 +236,29 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Напоминать за 1 день до дедлайна</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              checked={settings.notifyBeforeDay}
+              onChange={(e) => {
+                const value = e.target.checked;
+                setSettings((prev) => ({ ...prev, notifyBeforeDay: value }));
+                updateUserSettings({ notify_before_day: value });
+              }}
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Напоминать за 1 час до дедлайна</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              checked={settings.notifyBeforeHour}
+              onChange={(e) => {
+                const value = e.target.checked;
+                setSettings((prev) => ({ ...prev, notifyBeforeHour: value }));
+                updateUserSettings({ notify_before_hour: value });
+              }}
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
         </div>
       </div>

@@ -49,6 +49,8 @@ export function TasksView({
     CATEGORY_OPTIONS
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [notifyBeforeDay, setNotifyBeforeDay] = useState(false);
+  const [notifyBeforeHour, setNotifyBeforeHour] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -70,6 +72,34 @@ export function TasksView({
       // ignore
     }
   }, []);
+
+  // настройки уведомлений
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    let ignore = false;
+
+    async function loadUserSettings() {
+      const { data, error } = await supabase
+        .from("user_settings")
+        .select("notify_before_day, notify_before_hour")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (ignore) return;
+
+      if (!error && data) {
+        setNotifyBeforeDay(!!(data as any).notify_before_day);
+        setNotifyBeforeHour(!!(data as any).notify_before_hour);
+      }
+    }
+
+    loadUserSettings();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     try {
@@ -275,7 +305,26 @@ export function TasksView({
       if (error) {
         console.error("Не удалось создать задачу:", error.message);
       } else if (data) {
-        setTasks((prev) => [...prev, data as Task]);
+        const inserted = data as Task;
+        setTasks((prev) => [...prev, inserted]);
+
+        // создаём уведомление о новой задаче, если включены напоминания
+        if (notifyBeforeDay || notifyBeforeHour) {
+          try {
+            await supabase.from("notifications").insert([
+              {
+                user_id: user.id,
+                task_id: inserted.id,
+                title: "Новая задача",
+                body: `Задача «${inserted.title}» запланирована на ${inserted.dueDate}.`,
+                type: "created",
+                is_read: false,
+              },
+            ]);
+          } catch (e) {
+            console.error("Не удалось создать уведомление:", e);
+          }
+        }
       }
     }
     setIsModalOpen(false);

@@ -50,7 +50,10 @@ export function AppShell({ user, activeSection, onSectionChange }: AppShellProps
         </main>
 
         {showNotifications && (
-          <NotificationsPanel onClose={() => setShowNotifications(false)} />
+          <NotificationsPanel
+            user={user}
+            onClose={() => setShowNotifications(false)}
+          />
         )}
       </div>
     </div>
