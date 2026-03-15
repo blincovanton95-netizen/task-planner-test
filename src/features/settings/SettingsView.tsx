@@ -14,6 +14,7 @@ type ProfileSettings = {
   timezone: string;
   notifyBeforeDay: boolean;
   notifyBeforeHour: boolean;
+  emailNotificationsEnabled: boolean;
 };
 
 const DEFAULT_SETTINGS: ProfileSettings = {
@@ -21,12 +22,14 @@ const DEFAULT_SETTINGS: ProfileSettings = {
   timezone: "Europe/Moscow",
   notifyBeforeDay: false,
   notifyBeforeHour: false,
+  emailNotificationsEnabled: true,
 };
 
 export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
   const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     let ignore = false;
@@ -46,6 +49,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
             timezone: data.timezone || DEFAULT_SETTINGS.timezone,
             notifyBeforeDay: DEFAULT_SETTINGS.notifyBeforeDay,
             notifyBeforeHour: DEFAULT_SETTINGS.notifyBeforeHour,
+            emailNotificationsEnabled: DEFAULT_SETTINGS.emailNotificationsEnabled,
           });
         }
       }
@@ -58,7 +62,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
     };
   }, [user]);
 
-  // загружаем настройки уведомлений из user_settings
+  // загружаем настройки уведомлений из user_settings (без мастер-переключателя e-mail — он только на фронте)
   useEffect(() => {
     if (!supabase || !user) return;
 
@@ -89,6 +93,49 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
     };
   }, [user]);
 
+  // загружаем тему и мастер-переключатель e-mail из localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const storedTheme = window.localStorage.getItem("taskPlannerTheme");
+      if (storedTheme === "light" || storedTheme === "dark") {
+        setTheme(storedTheme);
+      }
+
+      const storedEmail = window.localStorage.getItem(
+        "taskPlannerEmailNotifications"
+      );
+      if (storedEmail === "0" || storedEmail === "1") {
+        setSettings((prev) => ({
+          ...prev,
+          emailNotificationsEnabled: storedEmail === "1",
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // применяем тему ко всему приложению и сохраняем настройки в localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const root = document.documentElement;
+    root.classList.remove("theme-light", "theme-dark");
+    root.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
+
+    try {
+      window.localStorage.setItem("taskPlannerTheme", theme);
+      window.localStorage.setItem(
+        "taskPlannerEmailNotifications",
+        settings.emailNotificationsEnabled ? "1" : "0"
+      );
+    } catch {
+      // ignore
+    }
+  }, [theme, settings.emailNotificationsEnabled]);
+
   async function updateUserSettings(partial: {
     notify_before_day?: boolean;
     notify_before_hour?: boolean;
@@ -103,9 +150,41 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         partial.notify_before_hour ?? settings.notifyBeforeHour,
     };
 
-    const { error } = await supabase
+    // Ручной upsert, чтобы не зависеть от onConflict и индексов
+    const { data: existing, error: selectError } = await supabase
       .from("user_settings")
-      .upsert(payload, { onConflict: "user_id" });
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (selectError) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "Не удалось загрузить существующие настройки уведомлений:",
+        selectError.message
+      );
+      return;
+    }
+
+    let error = null;
+
+    if (existing) {
+      const res = await supabase
+        .from("user_settings")
+        .update({
+          notify_before_day: payload.notify_before_day,
+          notify_before_hour: payload.notify_before_hour,
+        })
+        .eq("id", (existing as any).id);
+      error = res.error;
+    } else {
+      // При первой вставке связываем id с пользователем,
+      // чтобы удовлетворить внешнему ключу user_settings_id_fkey.
+      const res = await supabase
+        .from("user_settings")
+        .insert([{ id: user.id, ...payload }]);
+      error = res.error;
+    }
 
     if (error) {
       // eslint-disable-next-line no-console
@@ -169,9 +248,15 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
             <label className="block text-xs font-medium text-slate-700">
               Тема
             </label>
-            <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2">
-              <option>Светлая</option>
-              <option>Тёмная</option>
+            <select
+              value={theme}
+              onChange={(e) =>
+                setTheme(e.target.value === "dark" ? "dark" : "light")
+              }
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+            >
+              <option value="light">Светлая</option>
+              <option value="dark">Тёмная</option>
             </select>
           </div>
           <div className="space-y-1">
@@ -232,7 +317,18 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         <div className="space-y-2">
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Email-уведомления о предстоящих задачах</span>
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              checked={settings.emailNotificationsEnabled}
+              onChange={(e) => {
+                const value = e.target.checked;
+                setSettings((prev) => ({
+                  ...prev,
+                  emailNotificationsEnabled: value,
+                }));
+              }}
+              className="h-4 w-4 rounded border-slate-300"
+            />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
             <span>Напоминать за 1 день до дедлайна</span>
@@ -244,7 +340,8 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
                 setSettings((prev) => ({ ...prev, notifyBeforeDay: value }));
                 updateUserSettings({ notify_before_day: value });
               }}
-              className="h-4 w-4 rounded border-slate-300"
+              disabled={!settings.emailNotificationsEnabled}
+              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50"
             />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
@@ -257,7 +354,8 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
                 setSettings((prev) => ({ ...prev, notifyBeforeHour: value }));
                 updateUserSettings({ notify_before_hour: value });
               }}
-              className="h-4 w-4 rounded border-slate-300"
+              disabled={!settings.emailNotificationsEnabled}
+              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50"
             />
           </label>
         </div>

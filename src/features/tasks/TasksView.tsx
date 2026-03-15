@@ -51,6 +51,8 @@ export function TasksView({
   const [searchQuery, setSearchQuery] = useState("");
   const [notifyBeforeDay, setNotifyBeforeDay] = useState(false);
   const [notifyBeforeHour, setNotifyBeforeHour] = useState(false);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] =
+    useState(true);
 
   const today = new Date().toISOString().slice(0, 10);
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -73,7 +75,7 @@ export function TasksView({
     }
   }, []);
 
-  // настройки уведомлений
+  // настройки уведомлений (мастер e-mail только на фронте, в user_settings его нет)
   useEffect(() => {
     if (!supabase || !user) return;
 
@@ -308,8 +310,8 @@ export function TasksView({
         const inserted = data as Task;
         setTasks((prev) => [...prev, inserted]);
 
-        // создаём уведомление о новой задаче, если включены напоминания
-        if (notifyBeforeDay || notifyBeforeHour) {
+        // создаём уведомление о новой задаче, если включены e-mail уведомления и напоминания
+        if (emailNotificationsEnabled && (notifyBeforeDay || notifyBeforeHour)) {
           try {
             await supabase.from("notifications").insert([
               {

@@ -46,7 +46,7 @@ export function AppShell({ user, activeSection, onSectionChange }: AppShellProps
             />
           )}
           {activeSection === "profile" && <ProfileView user={user} />}
-          {activeSection === "settings" && <SettingsView />}
+          {activeSection === "settings" && <SettingsView user={user} />}
         </main>
 
         {showNotifications && (
