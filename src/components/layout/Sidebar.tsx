@@ -1,6 +1,7 @@
 'use client';
 
 import { Logo } from "../../components/ui/Logo";
+import { useLanguage } from "../../lib/i18n";
 
 interface SidebarProps {
   activeSection: string;
@@ -8,6 +9,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
+  const { t } = useLanguage();
+
   const navItemClasses = (id: string) =>
     `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
       activeSection === id
@@ -24,37 +27,37 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
       <nav className="flex-1 space-y-6 text-sm">
         <div>
           <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Основное
+            {t("nav.mainSection")}
           </div>
           <button
             className={navItemClasses("dashboard")}
             onClick={() => onSectionChange("dashboard")}
           >
-            Главная
+            {t("nav.dashboard")}
           </button>
           <button
             className={navItemClasses("tasks")}
             onClick={() => onSectionChange("tasks")}
           >
-            Задачи
+            {t("nav.tasks")}
           </button>
         </div>
 
         <div>
           <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Пользователь
+            {t("nav.userSection")}
           </div>
           <button
             className={navItemClasses("profile")}
             onClick={() => onSectionChange("profile")}
           >
-            Профиль
+            {t("nav.profile")}
           </button>
           <button
             className={navItemClasses("settings")}
             onClick={() => onSectionChange("settings")}
           >
-            Настройки
+            {t("nav.settings")}
           </button>
         </div>
       </nav>
@@ -65,4 +68,5 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
     </aside>
   );
 }
+
 

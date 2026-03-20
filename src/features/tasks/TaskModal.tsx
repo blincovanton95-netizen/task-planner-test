@@ -13,6 +13,7 @@ type TaskPayload = {
   title: string;
   description: string;
   dueDate: string;
+  dueTime: string;
   priority: string;
   category: string;
   completed: boolean;
@@ -39,6 +40,9 @@ export function TaskModal({
   );
   const [dueDate, setDueDate] = useState(
     initialTask?.dueDate || new Date().toISOString().slice(0, 10)
+  );
+  const [dueTime, setDueTime] = useState(
+    initialTask?.dueTime || "09:00"
   );
   const [priority, setPriority] = useState(initialTask?.priority || "medium");
   const [category, setCategory] = useState(initialTask?.category || "work");
@@ -77,6 +81,7 @@ export function TaskModal({
       title,
       description,
       dueDate,
+      dueTime,
       priority,
       category: finalCategory,
       completed,
@@ -124,17 +129,25 @@ export function TaskModal({
             />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1 md:col-span-2">
               <label className="block text-xs font-medium text-slate-700">
                 Дата выполнения
               </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+                />
+                <input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+                />
+              </div>
             </div>
             <div className="space-y-1">
               <label className="block text-xs font-medium text-slate-700">

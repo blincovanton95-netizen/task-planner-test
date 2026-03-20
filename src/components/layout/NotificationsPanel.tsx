@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
+import { useLanguage } from "../../lib/i18n";
 
 interface NotificationsPanelProps {
   user: User;
@@ -18,6 +19,8 @@ type NotificationRow = {
 };
 
 export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
+  const { t } = useLanguage();
+
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -96,7 +99,9 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
   return (
     <div className="pointer-events-auto absolute right-4 top-16 z-20 w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-xl">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Уведомления</h3>
+        <h3 className="text-sm font-semibold text-slate-900">
+          {t("notifications.title")}
+        </h3>
         <button
           onClick={onClose}
           className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
@@ -105,13 +110,11 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
         </button>
       </div>
       {isLoading ? (
-        <p className="text-slate-500">Загрузка…</p>
+        <p className="text-slate-500">{t("notifications.loading")}</p>
       ) : error ? (
         <p className="text-rose-600">{error}</p>
       ) : items.length === 0 ? (
-        <p className="text-slate-500">
-          Уведомлений пока нет. Напоминания о задачах будут появляться здесь.
-        </p>
+        <p className="text-slate-500">{t("notifications.empty")}</p>
       ) : (
         <ul className="space-y-2">
           {items.map((n) => (
@@ -122,7 +125,7 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
               }`}
             >
               <div className="text-[11px] font-semibold text-slate-700">
-                {n.title || "Уведомление"}
+                {n.title || t("notifications.title")}
               </div>
               {n.body && (
                 <div className="mt-0.5 text-[11px] text-slate-500">
@@ -139,4 +142,5 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
     </div>
   );
 }
+
 

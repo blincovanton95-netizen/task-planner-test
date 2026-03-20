@@ -19,6 +19,7 @@ type Task = {
   title: string;
   description: string | null;
   dueDate: string;
+  // время храним локально (localStorage), в Supabase только дата
   priority: string;
   category: string;
   completed: boolean;
@@ -53,6 +54,7 @@ export function TasksView({
   const [notifyBeforeHour, setNotifyBeforeHour] = useState(false);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] =
     useState(true);
+  const [taskTimes, setTaskTimes] = useState<Record<string, string>>({});
 
   const today = new Date().toISOString().slice(0, 10);
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -68,6 +70,22 @@ export function TasksView({
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length) {
           setCategoryOptions(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // локальное хранение времени задач по id
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const raw = window.localStorage.getItem("taskPlannerTaskTimes");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          setTaskTimes(parsed);
         }
       }
     } catch {
@@ -158,6 +176,19 @@ export function TasksView({
       ignore = true;
     };
   }, [user]);
+
+  // синхронизация taskTimes в localStorage
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(
+        "taskPlannerTaskTimes",
+        JSON.stringify(taskTimes)
+      );
+    } catch {
+      // ignore
+    }
+  }, [taskTimes]);
 
   const filteredTasks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -278,7 +309,9 @@ export function TasksView({
     setIsModalOpen(true);
   }
 
-  async function handleSave(taskData: Omit<Task, "id" | "user_id">) {
+  async function handleSave(
+    taskData: Omit<Task, "id" | "user_id"> & { dueTime?: string }
+  ) {
     if (!supabase || !user) return;
 
     if (editingTask) {
@@ -293,9 +326,14 @@ export function TasksView({
       if (error) {
         console.error("Не удалось обновить задачу:", error.message);
       } else if (data) {
+        const updated = data as Task;
         setTasks((prev) =>
-          prev.map((t) => (t.id === (data as Task).id ? (data as Task) : t))
+          prev.map((t) => (t.id === updated.id ? updated : t))
         );
+        const time = taskData.dueTime;
+        if (time) {
+          setTaskTimes((prev) => ({ ...prev, [updated.id]: time }));
+        }
       }
     } else {
       const { data, error } = await supabase
@@ -310,15 +348,23 @@ export function TasksView({
         const inserted = data as Task;
         setTasks((prev) => [...prev, inserted]);
 
+        const time = taskData.dueTime;
+        if (time) {
+          setTaskTimes((prev) => ({ ...prev, [inserted.id]: time }));
+        }
+
         // создаём уведомление о новой задаче, если включены e-mail уведомления и напоминания
         if (emailNotificationsEnabled && (notifyBeforeDay || notifyBeforeHour)) {
           try {
+            const when = `${inserted.dueDate}${
+              time ? ` ${time}` : ""
+            }`;
             await supabase.from("notifications").insert([
               {
                 user_id: user.id,
                 task_id: inserted.id,
                 title: "Новая задача",
-                body: `Задача «${inserted.title}» запланирована на ${inserted.dueDate}.`,
+                body: `Задача «${inserted.title}» запланирована на ${when}.`,
                 type: "created",
                 is_read: false,
               },
@@ -332,6 +378,156 @@ export function TasksView({
     setIsModalOpen(false);
     setEditingTask(null);
   }
+
+  // напоминания о задачах по дате/времени (пока приложение открыто)
+  useEffect(() => {
+    if (!supabase || !user) return;
+    if (!emailNotificationsEnabled) return;
+
+    let timerId: number | undefined;
+    let stopped = false;
+
+    const loadState = () => {
+      if (typeof window === "undefined") return {};
+      try {
+        const raw = window.localStorage.getItem("taskPlannerReminders");
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch {
+        return {};
+      }
+    };
+
+    const saveState = (state: any) => {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(
+          "taskPlannerReminders",
+          JSON.stringify(state)
+        );
+      } catch {
+        // ignore
+      }
+    };
+
+    const tick = async () => {
+      if (stopped) return;
+      const now = new Date();
+      const state = loadState();
+
+      const toNotify: {
+        task: Task;
+        kind: "day" | "hour" | "due";
+      }[] = [];
+
+      for (const task of tasks) {
+        if (!task.dueDate || task.completed) continue;
+
+        const datePart = task.dueDate;
+        const timePart = taskTimes[task.id] || "09:00";
+        const [h, m] = timePart.split(":").map((x) => parseInt(x, 10) || 0);
+
+        const due = new Date(datePart);
+        if (Number.isNaN(due.getTime())) continue;
+        due.setHours(h, m, 0, 0);
+
+        const msDiff = due.getTime() - now.getTime();
+
+        const taskState =
+          state[task.id] ||
+          {
+            day: false,
+            hour: false,
+            due: false,
+          };
+
+        if (
+          notifyBeforeDay &&
+          !taskState.day &&
+          msDiff <= 24 * 60 * 60 * 1000 &&
+          msDiff > 23 * 60 * 60 * 1000
+        ) {
+          toNotify.push({ task, kind: "day" });
+          taskState.day = true;
+        }
+
+        if (
+          notifyBeforeHour &&
+          !taskState.hour &&
+          msDiff <= 60 * 60 * 1000 &&
+          msDiff > 59 * 60 * 1000
+        ) {
+          toNotify.push({ task, kind: "hour" });
+          taskState.hour = true;
+        }
+
+        if (!taskState.due && msDiff <= 0 && msDiff > -60 * 1000) {
+          toNotify.push({ task, kind: "due" });
+          taskState.due = true;
+        }
+
+        state[task.id] = taskState;
+      }
+
+      saveState(state);
+
+      for (const item of toNotify) {
+        const { task, kind } = item;
+        let title = "Напоминание о задаче";
+        let body = task.title;
+        const datePart = task.dueDate;
+        const timePart = taskTimes[task.id] || "09:00";
+        const when = `${datePart} ${timePart}`;
+
+        if (kind === "day") {
+          title = "Напоминание за день до дедлайна";
+          body = `Задача «${task.title}» запланирована на ${when}.`;
+        } else if (kind === "hour") {
+          title = "Напоминание за час до дедлайна";
+          body = `Задача «${task.title}» скоро наступит (${when}).`;
+        } else if (kind === "due") {
+          title = "Время выполнить задачу";
+          body = `Сейчас время для задачи «${task.title}» (${when}).`;
+        }
+
+        try {
+          await supabase.from("notifications").insert([
+            {
+              user_id: user.id,
+              task_id: task.id,
+              title,
+              body,
+              type: `reminder_${kind}`,
+              is_read: false,
+            },
+          ]);
+        } catch (e) {
+          console.error("Не удалось создать напоминание:", e);
+        }
+      }
+
+      if (!stopped) {
+        timerId = window.setTimeout(tick, 60 * 1000);
+      }
+    };
+
+    timerId = window.setTimeout(tick, 5 * 1000);
+
+    return () => {
+      stopped = true;
+      if (timerId !== undefined && typeof window !== "undefined") {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [
+    tasks,
+    taskTimes,
+    notifyBeforeDay,
+    notifyBeforeHour,
+    emailNotificationsEnabled,
+    user,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -528,7 +724,10 @@ export function TasksView({
                             : ""
                         }
                       >
-                        {task.dueDate}
+                        {task.dueDate}{" "}
+                        {taskTimes[task.id]
+                          ? taskTimes[task.id]
+                          : "— без времени"}
                       </span>
                     </div>
                   </div>
@@ -560,7 +759,14 @@ export function TasksView({
 
       {isModalOpen && (
         <TaskModal
-          initialTask={editingTask ?? undefined}
+          initialTask={
+            editingTask
+              ? {
+                  ...editingTask,
+                  dueTime: taskTimes[editingTask.id] || "09:00",
+                }
+              : undefined
+          }
           categoryOptions={categoryOptions}
           onAddCategory={(cat) =>
             setCategoryOptions((prev) => {

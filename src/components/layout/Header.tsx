@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, ChangeEvent } from "react";
+import { useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
+import { useLanguage } from "../../lib/i18n";
 
 interface HeaderProps {
   user: User;
@@ -9,6 +10,8 @@ interface HeaderProps {
 }
 
 export function Header({ user, onOpenNotifications }: HeaderProps) {
+  const { t } = useLanguage();
+
   const displayName =
     (user as any)?.user_metadata?.full_name || user?.email || "Пользователь";
 
@@ -30,26 +33,9 @@ export function Header({ user, onOpenNotifications }: HeaderProps) {
     return "TP";
   }, [user]);
 
-  const handleSearchChange = (_e: ChangeEvent<HTMLInputElement>) => {
-    // Поиск реализован в TasksView, поле в шапке сейчас декоративное.
-  };
-
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-      <div className="flex flex-1 items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-            🔍
-          </span>
-          <input
-            type="search"
-            placeholder="Поиск задач..."
-            onChange={handleSearchChange}
-            className="w-full rounded-full border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-sm outline-none ring-sky-500 focus:bg-white focus:ring-2"
-          />
-        </div>
-      </div>
-      <div className="ml-4 flex items-center gap-3">
+    <header className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-3">
+      <div className="flex items-center gap-3">
         <button
           onClick={onOpenNotifications}
           className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
@@ -62,7 +48,9 @@ export function Header({ user, onOpenNotifications }: HeaderProps) {
           </div>
           <div className="hidden text-xs leading-tight text-slate-700 sm:block">
             <div className="font-medium">{displayName}</div>
-            <div className="text-[11px] text-slate-400">Личный аккаунт</div>
+            <div className="text-[11px] text-slate-400">
+              {t("header.personalAccount")}
+            </div>
           </div>
         </div>
       </div>

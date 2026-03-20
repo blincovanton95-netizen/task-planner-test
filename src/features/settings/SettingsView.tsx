@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
+import { useLanguage } from "../../lib/i18n";
 
 interface SettingsViewProps {
   user: User;
@@ -26,9 +27,9 @@ const DEFAULT_SETTINGS: ProfileSettings = {
 };
 
 export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
+  const { t, setLanguage } = useLanguage();
+
   const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -44,13 +45,17 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
 
       if (!ignore) {
         if (!error && data) {
-          setSettings({
+          const next: ProfileSettings = {
             language: data.language || DEFAULT_SETTINGS.language,
             timezone: data.timezone || DEFAULT_SETTINGS.timezone,
             notifyBeforeDay: DEFAULT_SETTINGS.notifyBeforeDay,
             notifyBeforeHour: DEFAULT_SETTINGS.notifyBeforeHour,
             emailNotificationsEnabled: DEFAULT_SETTINGS.emailNotificationsEnabled,
-          });
+          };
+          setSettings(next);
+          if (next.language === "ru" || next.language === "en") {
+            setLanguage(next.language);
+          }
         }
       }
     }
@@ -136,6 +141,33 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
     }
   }, [theme, settings.emailNotificationsEnabled]);
 
+  async function persistProfileSettings(partial: {
+    language?: string;
+    timezone?: string;
+  }) {
+    if (!supabase || !user) return;
+
+    const next = {
+      language: partial.language ?? settings.language,
+      timezone: partial.timezone ?? settings.timezone,
+    };
+
+    const { error } = await supabase.from("profiles").upsert(
+      {
+        id: user.id,
+        email: user.email,
+        language: next.language,
+        timezone: next.timezone,
+      },
+      { onConflict: "id" }
+    );
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Не удалось сохранить настройки профиля:", error.message);
+    }
+  }
+
   async function updateUserSettings(partial: {
     notify_before_day?: boolean;
     notify_before_hour?: boolean;
@@ -195,30 +227,6 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
     }
   }
 
-  async function handleSave(e: FormEvent) {
-    e.preventDefault();
-    if (!supabase || !user) return;
-    setIsLoading(true);
-    setMessage(null);
-
-    const { error } = await supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email,
-        language: settings.language,
-        timezone: settings.timezone,
-      },
-      { onConflict: "id" }
-    );
-
-    if (error) {
-      setMessage(error.message ?? "Не удалось сохранить настройки.");
-    } else {
-      setMessage("Настройки сохранены.");
-    }
-    setIsLoading(false);
-  }
-
   async function handleSignOutAll() {
     if (!supabase) return;
     // Глобальный выход: ревок всех refresh-токенов и очистка локальной сессии.
@@ -232,21 +240,22 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Настройки</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          {t("settings.title")}
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Настройте внешний вид, уведомления и безопасность аккаунта.
+          {t("settings.subtitle")}
         </p>
       </div>
 
-      <form
-        onSubmit={handleSave}
-        className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm"
-      >
-        <h3 className="text-sm font-semibold text-slate-800">Общие</h3>
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-800">
+          {t("settings.title")}
+        </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Тема
+              {t("settings.theme")}
             </label>
             <select
               value={theme}
@@ -255,19 +264,24 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
               }
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
             >
-              <option value="light">Светлая</option>
-              <option value="dark">Тёмная</option>
+              <option value="light">{t("settings.theme.light")}</option>
+              <option value="dark">{t("settings.theme.dark")}</option>
             </select>
           </div>
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Язык интерфейса
+              {t("settings.language")}
             </label>
             <select
               value={settings.language}
-              onChange={(e) =>
-                setSettings((prev) => ({ ...prev, language: e.target.value }))
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setSettings((prev) => ({ ...prev, language: value }));
+                void persistProfileSettings({ language: value });
+                if (value === "ru" || value === "en") {
+                  setLanguage(value);
+                }
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
             >
               <option value="ru">Русский</option>
@@ -279,13 +293,15 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Часовой пояс
+              {t("settings.timezone")}
             </label>
             <select
               value={settings.timezone}
-              onChange={(e) =>
-                setSettings((prev) => ({ ...prev, timezone: e.target.value }))
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setSettings((prev) => ({ ...prev, timezone: value }));
+                void persistProfileSettings({ timezone: value });
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
             >
               <option value="Europe/Moscow">GMT+3 (Москва)</option>
@@ -295,28 +311,15 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
           </div>
         </div>
 
-        {message && (
-          <p className="text-xs text-slate-500">
-            {message}
-          </p>
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
-          >
-            {isLoading ? "Сохранение..." : "Сохранить изменения"}
-          </button>
-        </div>
-      </form>
+      </div>
 
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Уведомления</h3>
+        <h3 className="text-sm font-semibold text-slate-800">
+          {t("settings.notifications.title")}
+        </h3>
         <div className="space-y-2">
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
-            <span>Email-уведомления о предстоящих задачах</span>
+            <span>{t("settings.notifications.emailToggle")}</span>
             <input
               type="checkbox"
               checked={settings.emailNotificationsEnabled}
@@ -331,7 +334,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
             />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
-            <span>Напоминать за 1 день до дедлайна</span>
+            <span>{t("settings.notifications.beforeDay")}</span>
             <input
               type="checkbox"
               checked={settings.notifyBeforeDay}
@@ -345,7 +348,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
             />
           </label>
           <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
-            <span>Напоминать за 1 час до дедлайна</span>
+            <span>{t("settings.notifications.beforeHour")}</span>
             <input
               type="checkbox"
               checked={settings.notifyBeforeHour}
@@ -362,11 +365,13 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
       </div>
 
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Безопасность</h3>
+        <h3 className="text-sm font-semibold text-slate-800">
+          {t("settings.security.title")}
+        </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Старый пароль
+              {t("settings.security.oldPassword")}
             </label>
             <input
               type="password"
@@ -375,7 +380,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
           </div>
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Новый пароль
+              {t("settings.security.newPassword")}
             </label>
             <input
               type="password"
@@ -384,7 +389,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
           </div>
           <div className="space-y-1 md:col-span-2">
             <label className="block text-xs font-medium text-slate-700">
-              Подтверждение нового пароля
+              {t("settings.security.confirmPassword")}
             </label>
             <input
               type="password"
@@ -395,14 +400,14 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <button className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
-            Обновить пароль
+            {t("settings.security.updatePassword")}
           </button>
           <button
             type="button"
             onClick={handleSignOutAll}
             className="text-xs font-medium text-rose-700 hover:underline"
           >
-            Выйти из всех устройств
+            {t("settings.security.logoutAll")}
           </button>
         </div>
       </div>

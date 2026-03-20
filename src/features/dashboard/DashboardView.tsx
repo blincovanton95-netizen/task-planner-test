@@ -14,6 +14,7 @@ type Task = {
   title: string;
   description: string | null;
   dueDate: string;
+  // локальное время берём из localStorage при отображении
   priority: string;
   category: string;
   completed: boolean;
@@ -38,6 +39,7 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [isLoading, setIsLoading] = useState(true);
+  const [taskTimes, setTaskTimes] = useState<Record<string, string>>({});
 
   const today = new Date().toISOString().slice(0, 10);
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -108,6 +110,21 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
       ignore = true;
     };
   }, [user, today, weekFromNow, sevenDaysAgo]);
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const raw = window.localStorage.getItem("taskPlannerTaskTimes");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          setTaskTimes(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const upcomingTasks = useMemo(() => {
     return tasks
@@ -192,6 +209,9 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
                     </div>
                     <div className="mt-0.5 text-[11px] text-slate-500">
                       {task.dueDate} ·{" "}
+                      {taskTimes[task.id]
+                        ? `${taskTimes[task.id]} · `
+                        : "— без времени · "}
                       {task.priority === "high"
                         ? "Высокий приоритет"
                         : task.priority === "medium"

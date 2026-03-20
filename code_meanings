@@ -1,0 +1,342 @@
+1. Технологии и общая архитектура
+Стек: Next.js (App Router, src/app), React (функциональные компоненты, хуки), TypeScript (для большинства файлов), TailwindCSS для UI, Supabase как бэкенд (аутентификация, БД, уведомления).
+Хранение данных:
+В Supabase таблицы: tasks, profiles, user_settings, notifications (структура описана в supabase-schema.txt).
+На фронте доп. состояние в localStorage:
+taskPlannerRememberMe – помнить пользователя между сессиями или нет.
+taskPlannerCategories – пользовательские категории задач.
+taskPlannerTheme – светлая/тёмная тема.
+taskPlannerEmailNotifications – включены ли email-уведомления в целом.
+Архитектурно проект делится на:
+
+src/app – оболочка Next и страница входа/приложения.
+src/lib – инициализация Supabase.
+src/components – переиспользуемые компоненты: шапка, сайдбар, логотип, панель уведомлений, экран аутентификации.
+src/features – “фичи”: dashboard, tasks, profile, settings.
+src/constants – константы для задач (приоритеты, категории, режимы просмотра).
+2. Точка входа и макет Next.js
+src/app/layout.js
+Определяет общий layout приложения:
+Подключает шрифты Geist и globals.css.
+Экспортирует metadata (заголовок и описание для SEO).
+Оборачивает всё приложение в <html><body>...</body></html>.
+Кодовая идея:
+
+
+layout.js
+Lines 12-27
+export const metadata = {
+  title: "Task Planner",
+  description: "Планировщик личных дел и задач",
+};
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
+      </body>
+    </html>
+  );
+}
+3. Главная страница и управление аутентификацией
+src/app/page.tsx
+Это сердце приложения, решает, что показывать: экран логина или основную оболочку со всеми разделами.
+
+Основные моменты:
+
+Подключает supabase, компоненты AuthScreen и AppShell.
+Локальное состояние:
+user – текущий пользователь из Supabase.
+authChecked – флаг, что проверка сессии завершена.
+authMode – режим login / register.
+activeSection – текущий раздел (dashboard, tasks, profile, settings).
+Логика в useEffect:
+
+Если supabase не сконфигурирован – просто ставит authChecked = true.
+Читает taskPlannerRememberMe из localStorage:
+Если "0" – делает supabase.auth.signOut() и не восстанавливает сессию.
+Иначе:
+Запрашивает текущего пользователя через supabase.auth.getUser().
+Подписывается на onAuthStateChange, чтобы обновлять user при логине/выходе/обновлении сессии.
+Функция handleAuthenticated:
+
+Вызывается после успешного логина/регистрации из AuthScreen.
+Сохраняет пользователя в user.
+Записывает флаг taskPlannerRememberMe в localStorage.
+Рендер:
+
+Пока проверяется сессия — показывает экран “Загрузка…”.
+Если пользователь не авторизован — рендерит AuthScreen.
+Если авторизован — рендерит AppShell с user и activeSection.
+
+page.tsx
+Lines 16-107
+if (!isAuthenticated) {
+  return (
+    <AuthScreen
+      mode={authMode}
+      onModeChange={setAuthMode}
+      onAuthenticated={handleAuthenticated}
+    />
+  );
+}
+return (
+  <AppShell
+    user={user}
+    activeSection={activeSection}
+    onSectionChange={setActiveSection}
+  />
+);
+4. Инициализация Supabase
+src/lib/supabaseClient.js
+Берёт NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY из env.
+Если их нет – пишет предупреждение в консоль и экспортирует supabase = null, чтобы фронтенд мог работать в “демо”-режиме без сохранения.
+
+supabaseClient.js
+Lines 1-19
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
+5. Оболочка приложения (layout после логина)
+src/components/layout/AppShell.tsx
+Получает user, activeSection, onSectionChange.
+Управляет:
+openFromDashboard – флаг, чтобы при клике “Новая задача” на дашборде сразу открыть модалку создания в разделе задач.
+showNotifications – показывать/прятать панель уведомлений.
+Структура:
+
+Слева Sidebar (навигация по разделам).
+Справа колонка:
+Header (поиск, аватар, кнопка уведомлений).
+<main> с контентом разделов:
+DashboardView (обзор задач и статистика).
+TasksView (список задач).
+ProfileView (профиль пользователя).
+SettingsView (настройки).
+NotificationsPanel (всплывающая панель с уведомлениями по задачам).
+Связка дашборда и задач:
+
+
+AppShell.tsx
+Lines 19-49
+{activeSection === "dashboard" && (
+  <DashboardView
+    user={user}
+    onCreateTask={() => {
+      onSectionChange("tasks");
+      setOpenFromDashboard(true);
+    }}
+  />
+)}
+{activeSection === "tasks" && (
+  <TasksView
+    user={user}
+    openFromDashboard={openFromDashboard}
+    onOpenFromDashboardHandled={() => setOpenFromDashboard(false)}
+  />
+)}
+При нажатии “+ Новая задача” на дашборде:
+переключаем раздел на tasks.
+ставим openFromDashboard = true.
+Внутри TasksView этот флаг ловится и открывается модальное окно создания задачи.
+6. Навигация и шапка
+Sidebar (src/components/layout/Sidebar.tsx)
+Показывает логотип (Logo) и меню разделов:
+“Главная” (dashboard)
+“Задачи”
+“Профиль”
+“Настройки”
+Подсвечивает активный раздел по activeSection.
+Доступен только на md+ (на мобильном скрыт).
+Header (src/components/layout/Header.tsx)
+Показывает:
+Поле поиска (пока чисто визуальное, логика поиска — в TasksView).
+Кнопку уведомлений (вызывает onOpenNotifications).
+Аватар с инициалами и именем/почтой (из user_metadata.full_name или email).
+7. Уведомления
+NotificationsPanel (src/components/layout/NotificationsPanel.tsx)
+При монтировании:
+Загружает профиль пользователя (profiles.timezone) для корректного форматирования дат.
+Загружает последние уведомления из таблицы notifications (до 20 штук, сортировка по created_at).
+Показывает:
+Заголовок, кнопку закрытия.
+Либо состояние: “Загрузка…”, либо ошибку, либо список уведомлений.
+Каждое уведомление:
+Заголовок, текст, дата в локальном часовом поясе (если в профиле задан timezone).
+Непрочитанные подсвечены фоном bg-sky-50, прочитанные bg-slate-50.
+8. Экран авторизации
+AuthScreen (src/components/auth/AuthScreen.tsx)
+Поддерживает 3 режима: login, register, forgot.
+
+Состояния:
+isLoading, error, info, rememberMe.
+Обрабатывает форму:
+Forgot password:
+
+Вызывает supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }).
+Показывает сообщение, что отправлено письмо для восстановления.
+Login:
+
+supabase.auth.signInWithPassword({ email, password }).
+При успехе вызывает onAuthenticated({ user: data.user, rememberMe }).
+Register:
+
+Проверяет совпадение паролей и наличие имени.
+Вызывает supabase.auth.signUp({...}) с user metadata full_name.
+Если user не вернулся сразу, просит подтвердить почту.
+Иначе вызывает onAuthenticated({ user: data.user, rememberMe: true }).
+Визуально:
+
+Верхний переключатель “Вход / Регистрация”.
+В режиме “Забыли пароль?” показывается инфоблок с пояснением.
+9. Работа с задачами
+Константы задач (src/constants/tasks.js)
+Определяет:
+Цвета бейджей по приоритету (PRIORITY_COLORS).
+Цвета категорий (CATEGORY_COLORS).
+Режимы просмотра списка задач (VIEW_MODES: сегодня, неделя, все, просроченные, выполненные).
+Списки опций для селектов приоритета и категории.
+Основной экран задач: TasksView (src/features/tasks/TasksView.tsx)
+Состояния:
+
+tasks – массив задач, загружаемых из таблицы tasks по user_id.
+isLoading, error.
+Фильтры и сортировка:
+viewMode – выбранный режим отображения (по дате/статусу).
+categoryFilter, priorityFilter.
+sortBy – сортировка по дате/приоритету.
+searchQuery – поиск по названию/описанию.
+Управление модалкой:
+isModalOpen, editingTask.
+Категории:
+categoryOptions – список категорий, который подмешивается с CATEGORY_OPTIONS и сохранён в localStorage.
+Настройки уведомлений:
+notifyBeforeDay, notifyBeforeHour – подгружаются из user_settings.
+emailNotificationsEnabled – мастер-переключатель (сейчас только фронт, хранится в SettingsView и localStorage, тут он по умолчанию true).
+Основные useEffect:
+
+Загрузка пользовательских категорий из localStorage.
+Загрузка настроек уведомлений из user_settings.
+Сохранение категорий обратно в localStorage при изменении.
+Открытие модалки при переходе с дашборда (через openFromDashboard).
+Загрузка задач из Supabase:
+supabase.from("tasks").select("*").eq("user_id", user.id).order("dueDate").
+Фильтрация и сортировка (useMemo):
+
+По viewMode:
+“Сегодня” – невыполненные задачи на сегодня или просроченные.
+“Неделя” – невыполненные задачи от сегодня до недели вперёд.
+“Просроченные” – невыполненные с датой < сегодня.
+“Выполненные” – completed = true.
+“Все” – без фильтра по дате.
+По категории, приоритету.
+По поиску в title и description.
+Сортировка по дате или приоритету.
+Операции:
+
+toggleCompleted – переключение статуса выполненности:
+Оптимистично обновляет tasks в состоянии.
+Пишет completed в таблицу tasks для соответствующего id и user_id.
+handleDelete – удаление задачи:
+Спрашивает подтверждение через window.confirm.
+delete по id и user_id.
+handleOpenCreate / handleOpenEdit – открытие модалки.
+handleSave:
+Если editingTask есть – делает update задачи и обновляет её в списке.
+Если создаём новую – insert с user_id и добавляет в tasks.
+При создании, если emailNotificationsEnabled && (notifyBeforeDay || notifyBeforeHour):
+Создаёт запись в таблице notifications с текстом “Новая задача ...”.
+Рендер:
+
+Заголовок, кнопка “+ Новая задача”.
+Панель фильтров (вид, категория, приоритет, сортировка, поиск).
+Таблица/список задач с чекбоксом выполнения, бейджем приоритета, цветной точкой категории и датой (красной, если просрочена и не выполнена).
+Кнопки “Редактировать” и “Удалить”.
+Пустой стейт с кнопкой “Создать первую задачу”.
+Модалка TaskModal для создания/редактирования.
+Модалка задачи (TaskModal)
+Локально хранит поля формы:
+title, description, dueDate, priority, category, completed.
+Управление созданием новой категории: isNewCategory, newCategoryName, newCategoryColor.
+При сабмите:
+Генерирует ID для новой категории, если выбрали “Новая категория…”, и вызывает onAddCategory.
+Передаёт TaskPayload наверх в onSave.
+10. Дашборд
+DashboardView (src/features/dashboard/DashboardView.tsx)
+Назначение – быстрый обзор:
+
+Сколько задач на сегодня / на неделю / просрочено / выполнено за последние 7 дней.
+Список ближайших задач на 7 дней вперёд.
+Разбивка задач по категориям.
+Работа:
+
+Загружает все задачи пользователя (tasks) по дате.
+Вычисляет stats:
+today, week, overdue, completedLast7.
+С помощью useMemo вычисляет upcomingTasks на ближайшую неделю (максимум 5 штук).
+Считает количество задач по категориям (тоже через useMemo внутри JSX).
+Есть кнопка + Новая задача, которая вызывает проп onCreateTask (дальше логика в AppShell → TasksView).
+
+11. Профиль пользователя
+ProfileView (src/features/profile/ProfileView.tsx)
+Хранит и редактирует данные профиля и показывает статистику продуктивности.
+
+Профиль:
+full_name, language, timezone.
+Грузится из таблицы profiles; если нет – берётся имя из user_metadata.full_name или email.
+Статистика:
+Загружает все задачи пользователя:
+totalTasks – всего задач.
+completedTasks – сколько с completed = true.
+completedWeek – выполнены за последнюю неделю по dueDate.
+Сохранение:
+
+supabase.from("profiles").upsert({...}, { onConflict: "id" }) – создаёт/обновляет профиль по id = user.id.
+12. Настройки
+SettingsView (src/features/settings/SettingsView.tsx)
+Собирает вместе:
+
+Общие настройки интерфейса:
+
+Тема (theme): светлая/тёмная.
+Хранится в состоянии и в localStorage.
+Применяется к document.documentElement через классы theme-light / theme-dark.
+Язык интерфейса (settings.language) и часовой пояс (settings.timezone):
+Сохраняются в таблицу profiles (upsert).
+Уведомления:
+
+Мастер-переключатель email-уведомлений (emailNotificationsEnabled):
+Только на фронтенде, хранится в localStorage (taskPlannerEmailNotifications).
+Два флага в таблице user_settings:
+notify_before_day – напоминать за день.
+notify_before_hour – напоминать за час.
+Функция updateUserSettings:
+Сначала проверяет, есть ли запись в user_settings для данного user_id.
+Если есть – делает update.
+Если нет – insert с id: user.id (чтобы удовлетворить внешнему ключу).
+Чекбоксы:
+При изменении вызывают updateUserSettings и обновляют локальное состояние.
+Отключаются, если мастер-переключатель email выключен.
+Безопасность:
+
+Визуальные поля для смены пароля (пока без бэкенд-логики).
+Кнопка “Выйти из всех устройств”:
+supabase.auth.signOut({ scope: "global" }).
+Очищает taskPlannerRememberMe в localStorage.
+Вызывает onSignedOutAll (если передан).
+13. Вспомогательные компоненты
+Logo (src/components/ui/Logo.js)
+Показывает картинку логотипа task-logo.png и текст “Task Planner”.
+Имеет проп align, чтобы выравнивать по центру или по левому краю.
+14. Итого по бизнес-логике
+Если кратко:
+
+Аутентификация через Supabase, с опцией “запомнить меня”, управляемой флагом в localStorage.
+Задачи хранятся в таблице tasks, загружаются и изменяются через Supabase, с богатыми фильтрами/поиском/сортировкой и редактированием прямо в UI.
+Категории задач – базовый набор + возможность создавать свои, хранятся на фронтенде (localStorage).
+Уведомления:
+Настройки (user_settings) + мастер-переключатель на фронте.
+При создании задачи при включённых уведомлениях создаётся запись в notifications.
+Панель уведомлений показывает последние события с учётом часового пояса профиля.
+Профиль и настройки – сохраняются в таблицу profiles, используются для отображения имени, языка, часового пояса, темы и части UX.

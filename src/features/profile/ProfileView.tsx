@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
+import { useLanguage } from "../../lib/i18n";
 
 interface ProfileViewProps {
   user: User;
@@ -21,8 +22,9 @@ const DEFAULT_PROFILE: ProfileData = {
 };
 
 export function ProfileView({ user }: ProfileViewProps) {
+  const { t, setLanguage } = useLanguage();
+
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
-  const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [totalTasks, setTotalTasks] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
@@ -44,14 +46,18 @@ export function ProfileView({ user }: ProfileViewProps) {
 
       if (!ignore) {
         if (!error && data) {
-          setProfile({
+          const nextProfile: ProfileData = {
             full_name:
               data.full_name ||
               (user.user_metadata?.full_name as string | undefined) ||
               "",
             language: data.language || "ru",
             timezone: data.timezone || "Europe/Moscow",
-          });
+          };
+          setProfile(nextProfile);
+          if (nextProfile.language === "ru" || nextProfile.language === "en") {
+            setLanguage(nextProfile.language);
+          }
         } else {
           setProfile((prev) => ({
             ...prev,
@@ -119,19 +125,17 @@ export function ProfileView({ user }: ProfileViewProps) {
     };
   }, [user]);
 
-  async function handleSave(e: FormEvent) {
-    e.preventDefault();
+  async function persistProfile(next: ProfileData) {
     if (!supabase || !user) return;
-    setIsSaving(true);
     setMessage(null);
 
     const { error } = await supabase.from("profiles").upsert(
       {
         id: user.id,
         email: user.email,
-        full_name: profile.full_name || null,
-        language: profile.language,
-        timezone: profile.timezone,
+        full_name: next.full_name || null,
+        language: next.language,
+        timezone: next.timezone,
       },
       { onConflict: "id" }
     );
@@ -139,25 +143,22 @@ export function ProfileView({ user }: ProfileViewProps) {
     if (error) {
       setMessage(error.message ?? "Не удалось сохранить профиль.");
     } else {
-      setMessage("Профиль сохранён.");
+      setMessage("Изменения сохранены.");
     }
-
-    setIsSaving(false);
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Профиль</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          {t("profile.title")}
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Управляйте личными данными и статистикой продуктивности.
+          {t("profile.subtitle")}
         </p>
       </div>
 
-      <form
-        onSubmit={handleSave}
-        className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-      >
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-600 text-lg font-semibold text-white">
             {displayName
@@ -172,7 +173,7 @@ export function ProfileView({ user }: ProfileViewProps) {
               {displayName}
             </div>
             <div className="text-xs text-slate-500">
-              {user?.email || "email не задан"}
+              {user?.email || t("profile.emailNotSet")}
             </div>
           </div>
         </div>
@@ -180,20 +181,25 @@ export function ProfileView({ user }: ProfileViewProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Имя
+              {t("profile.name")}
             </label>
             <input
               type="text"
               value={profile.full_name}
-              onChange={(e) =>
-                setProfile((prev) => ({ ...prev, full_name: e.target.value }))
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setProfile((prev) => {
+                  const next = { ...prev, full_name: value };
+                  void persistProfile(next);
+                  return next;
+                });
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
             />
           </div>
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Email
+              {t("profile.email")}
             </label>
             <input
               type="email"
@@ -204,29 +210,21 @@ export function ProfileView({ user }: ProfileViewProps) {
           </div>
           <div className="space-y-1">
             <label className="block text-xs font-medium text-slate-700">
-              Часовой пояс
-            </label>
-            <select
-              value={profile.timezone}
-              onChange={(e) =>
-                setProfile((prev) => ({ ...prev, timezone: e.target.value }))
-              }
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
-            >
-              <option value="Europe/Moscow">GMT+3 (Москва)</option>
-              <option value="Europe/Berlin">GMT+1 (Берлин)</option>
-              <option value="Europe/London">GMT+0 (Лондон)</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
-              Язык интерфейса
+              {t("profile.language")}
             </label>
             <select
               value={profile.language}
-              onChange={(e) =>
-                setProfile((prev) => ({ ...prev, language: e.target.value }))
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setProfile((prev) => {
+                  const next = { ...prev, language: value };
+                  void persistProfile(next);
+                  return next;
+                });
+                if (value === "ru" || value === "en") {
+                  setLanguage(value);
+                }
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
             >
               <option value="ru">Русский</option>
@@ -240,17 +238,7 @@ export function ProfileView({ user }: ProfileViewProps) {
             {message}
           </p>
         )}
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
-          >
-            {isSaving ? "Сохранение..." : "Сохранить изменения"}
-          </button>
-        </div>
-      </form>
+      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">
