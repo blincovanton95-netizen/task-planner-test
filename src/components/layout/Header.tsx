@@ -34,7 +34,7 @@ export function Header({ user, onOpenNotifications }: HeaderProps) {
   }, [user]);
 
   return (
-    <header className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-3">
+    <header className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-3 ">
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenNotifications}
@@ -42,7 +42,7 @@ export function Header({ user, onOpenNotifications }: HeaderProps) {
         >
           🔔
         </button>
-        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 ">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-600 text-xs font-semibold text-white">
             {initials}
           </div>

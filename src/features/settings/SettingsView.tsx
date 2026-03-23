@@ -12,7 +12,6 @@ interface SettingsViewProps {
 
 type ProfileSettings = {
   language: string;
-  timezone: string;
   notifyBeforeDay: boolean;
   notifyBeforeHour: boolean;
   emailNotificationsEnabled: boolean;
@@ -20,7 +19,6 @@ type ProfileSettings = {
 
 const DEFAULT_SETTINGS: ProfileSettings = {
   language: "ru",
-  timezone: "Europe/Moscow",
   notifyBeforeDay: false,
   notifyBeforeHour: false,
   emailNotificationsEnabled: true,
@@ -39,7 +37,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
       if (!supabase || !user) return;
       const { data, error } = await supabase
         .from("profiles")
-        .select("language, timezone")
+        .select("language")
         .eq("id", user.id)
         .single();
 
@@ -47,7 +45,6 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         if (!error && data) {
           const next: ProfileSettings = {
             language: data.language || DEFAULT_SETTINGS.language,
-            timezone: data.timezone || DEFAULT_SETTINGS.timezone,
             notifyBeforeDay: DEFAULT_SETTINGS.notifyBeforeDay,
             notifyBeforeHour: DEFAULT_SETTINGS.notifyBeforeHour,
             emailNotificationsEnabled: DEFAULT_SETTINGS.emailNotificationsEnabled,
@@ -143,13 +140,11 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
 
   async function persistProfileSettings(partial: {
     language?: string;
-    timezone?: string;
   }) {
     if (!supabase || !user) return;
 
     const next = {
       language: partial.language ?? settings.language,
-      timezone: partial.timezone ?? settings.timezone,
     };
 
     const { error } = await supabase.from("profiles").upsert(
@@ -157,7 +152,6 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         id: user.id,
         email: user.email,
         language: next.language,
-        timezone: next.timezone,
       },
       { onConflict: "id" }
     );
@@ -286,27 +280,6 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
             >
               <option value="ru">Русский</option>
               <option value="en">English</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
-              {t("settings.timezone")}
-            </label>
-            <select
-              value={settings.timezone}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSettings((prev) => ({ ...prev, timezone: value }));
-                void persistProfileSettings({ timezone: value });
-              }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
-            >
-              <option value="Europe/Moscow">GMT+3 (Москва)</option>
-              <option value="Europe/Berlin">GMT+1 (Берлин)</option>
-              <option value="Europe/London">GMT+0 (Лондон)</option>
             </select>
           </div>
         </div>

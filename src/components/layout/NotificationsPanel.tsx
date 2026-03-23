@@ -24,7 +24,6 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [timezone, setTimezone] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase || !user) {
@@ -38,13 +37,6 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
       setIsLoading(true);
       setError("");
 
-      // загружаем часовой пояс из профиля
-      const profilePromise = supabase
-        .from("profiles")
-        .select("timezone")
-        .eq("id", user.id)
-        .maybeSingle();
-
       const notificationsPromise = supabase
         .from("notifications")
         .select("*")
@@ -52,19 +44,10 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
         .order("created_at", { ascending: false })
         .limit(20);
 
-      const [profileResult, notificationsResult] = await Promise.all([
-        profilePromise,
-        notificationsPromise,
-      ]);
+      const notificationsResult = await notificationsPromise;
 
       if (ignore) return;
-
-      const { data: profile } = profileResult;
       const { data, error } = notificationsResult;
-
-      if (profile && (profile as any).timezone) {
-        setTimezone((profile as any).timezone as string);
-      }
 
       if (error) {
         setError(error.message ?? "Не удалось загрузить уведомления.");
@@ -88,7 +71,6 @@ export function NotificationsPanel({ user, onClose }: NotificationsPanelProps) {
     try {
       const date = new Date(value);
       return date.toLocaleString(undefined, {
-        timeZone: timezone || undefined,
         hour12: false,
       });
     } catch {

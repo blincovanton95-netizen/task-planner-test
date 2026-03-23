@@ -12,13 +12,11 @@ interface ProfileViewProps {
 type ProfileData = {
   full_name: string;
   language: string;
-  timezone: string;
 };
 
 const DEFAULT_PROFILE: ProfileData = {
   full_name: "",
   language: "ru",
-  timezone: "Europe/Moscow",
 };
 
 export function ProfileView({ user }: ProfileViewProps) {
@@ -40,7 +38,7 @@ export function ProfileView({ user }: ProfileViewProps) {
       if (!supabase || !user) return;
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, language, timezone")
+        .select("full_name, language")
         .eq("id", user.id)
         .single();
 
@@ -52,7 +50,6 @@ export function ProfileView({ user }: ProfileViewProps) {
               (user.user_metadata?.full_name as string | undefined) ||
               "",
             language: data.language || "ru",
-            timezone: data.timezone || "Europe/Moscow",
           };
           setProfile(nextProfile);
           if (nextProfile.language === "ru" || nextProfile.language === "en") {
@@ -135,7 +132,6 @@ export function ProfileView({ user }: ProfileViewProps) {
         email: user.email,
         full_name: next.full_name || null,
         language: next.language,
-        timezone: next.timezone,
       },
       { onConflict: "id" }
     );
@@ -143,7 +139,8 @@ export function ProfileView({ user }: ProfileViewProps) {
     if (error) {
       setMessage(error.message ?? "Не удалось сохранить профиль.");
     } else {
-      setMessage("Изменения сохранены.");
+      // Успешное сохранение не показываем (убрали "Изменения сохранены").
+      setMessage(null);
     }
   }
 
@@ -242,25 +239,23 @@ export function ProfileView({ user }: ProfileViewProps) {
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">
-          Статистика продуктивности
+          {t("profile.stats.title")}
         </h3>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <div>
-            <div className="text-xs text-slate-500">Всего задач</div>
+            <div className="text-xs text-slate-500">{t("profile.stats.totalTasks")}</div>
             <div className="mt-1 text-lg font-semibold text-slate-900">
               {totalTasks}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Выполнено</div>
+            <div className="text-xs text-slate-500">{t("profile.stats.completedTasks")}</div>
             <div className="mt-1 text-lg font-semibold text-emerald-600">
               {completedTasks}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">
-              Выполнено за последнюю неделю
-            </div>
+            <div className="text-xs text-slate-500">{t("profile.stats.completedWeek")}</div>
             <div className="mt-1 text-lg font-semibold text-sky-600">
               {completedWeek}
             </div>

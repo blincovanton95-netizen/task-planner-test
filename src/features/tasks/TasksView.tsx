@@ -11,6 +11,7 @@ import {
   CATEGORY_OPTIONS,
 } from "../../constants/tasks";
 import { TaskModal } from "./TaskModal";
+import { useLanguage } from "../../lib/i18n";
 
 const STORAGE_KEY = "taskPlannerCategories";
 
@@ -37,6 +38,7 @@ export function TasksView({
   openFromDashboard,
   onOpenFromDashboardHandled,
 }: TasksViewProps) {
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,6 +57,19 @@ export function TasksView({
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] =
     useState(true);
   const [taskTimes, setTaskTimes] = useState<Record<string, string>>({});
+
+  const getPriorityLabel = (priorityId: string) => {
+    const key = `tasks.priority.${priorityId}`;
+    const translated = t(key);
+    return translated !== key ? translated : priorityId;
+  };
+
+  const getCategoryLabel = (categoryId: string, fallback?: string) => {
+    const key = `tasks.category.${categoryId}`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    return fallback ?? (categoryId ? categoryId : t("tasks.category.none"));
+  };
 
   const today = new Date().toISOString().slice(0, 10);
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -161,7 +176,7 @@ export function TasksView({
 
       if (!ignore) {
         if (error) {
-          setError(error.message ?? "Не удалось загрузить задачи.");
+          setError(error.message ?? t("tasks.loadError"));
           setTasks([]);
         } else {
           setTasks((data as Task[]) ?? []);
@@ -282,7 +297,7 @@ export function TasksView({
 
     if (
       typeof window !== "undefined" &&
-      window.confirm("Удалить задачу?")
+      window.confirm(t("tasks.confirmDelete"))
     ) {
       const { error } = await supabase
         .from("tasks")
@@ -313,11 +328,12 @@ export function TasksView({
     taskData: Omit<Task, "id" | "user_id"> & { dueTime?: string }
   ) {
     if (!supabase || !user) return;
+    const { dueTime, ...dbTaskData } = taskData;
 
     if (editingTask) {
       const { data, error } = await supabase
         .from("tasks")
-        .update(taskData)
+        .update(dbTaskData)
         .eq("id", editingTask.id)
         .eq("user_id", user.id)
         .select()
@@ -330,7 +346,7 @@ export function TasksView({
         setTasks((prev) =>
           prev.map((t) => (t.id === updated.id ? updated : t))
         );
-        const time = taskData.dueTime;
+        const time = dueTime;
         if (time) {
           setTaskTimes((prev) => ({ ...prev, [updated.id]: time }));
         }
@@ -338,7 +354,7 @@ export function TasksView({
     } else {
       const { data, error } = await supabase
         .from("tasks")
-        .insert([{ ...taskData, user_id: user.id }])
+        .insert([{ ...dbTaskData, user_id: user.id }])
         .select()
         .single();
 
@@ -348,7 +364,7 @@ export function TasksView({
         const inserted = data as Task;
         setTasks((prev) => [...prev, inserted]);
 
-        const time = taskData.dueTime;
+        const time = dueTime;
         if (time) {
           setTaskTimes((prev) => ({ ...prev, [inserted.id]: time }));
         }
@@ -533,16 +549,16 @@ export function TasksView({
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Мои задачи</h2>
+          <h2 className="text-xl font-semibold text-slate-900">{t("tasks.title")}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Управляйте личными делами по времени, приоритету и категориям.
+            {t("tasks.subtitle")}
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
           className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
         >
-          + Новая задача
+          {t("dashboard.newTask")}
         </button>
       </div>
 
@@ -557,7 +573,7 @@ export function TasksView({
                 : "bg-slate-50 text-slate-700 hover:bg-slate-100"
             }`}
           >
-            {mode.label}
+            {t(`tasks.tabs.${mode.id}`)}
           </button>
         ))}
       </div>
@@ -565,17 +581,17 @@ export function TasksView({
       <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Категория
+            {t("tasks.filters.category")}
           </span>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
           >
-            <option value="all">Все</option>
+            <option value="all">{t("tasks.tabs.all")}</option>
             {categoryOptions.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.label}
+                {getCategoryLabel(cat.id, cat.label)}
               </option>
             ))}
           </select>
@@ -583,17 +599,17 @@ export function TasksView({
 
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Приоритет
+            {t("tasks.filters.priority")}
           </span>
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
           >
-            <option value="all">Все</option>
+            <option value="all">{t("tasks.tabs.all")}</option>
             {PRIORITY_OPTIONS.map((pr) => (
               <option key={pr.id} value={pr.id}>
-                {pr.label}
+                {getPriorityLabel(pr.id)}
               </option>
             ))}
           </select>
@@ -601,28 +617,28 @@ export function TasksView({
 
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Сортировка
+            {t("tasks.filters.sorting")}
           </span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
           >
-            <option value="dueDateAsc">По дате (раньше → позже)</option>
-            <option value="dueDateDesc">По дате (позже → раньше)</option>
-            <option value="priority">По приоритету</option>
+            <option value="dueDateAsc">{t("tasks.filters.sortingDateAsc")}</option>
+            <option value="dueDateDesc">{t("tasks.filters.sortingDateDesc")}</option>
+            <option value="priority">{t("tasks.filters.sortingPriority")}</option>
           </select>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Поиск
+            {t("tasks.filters.search")}
           </span>
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Название или описание..."
+            placeholder={t("tasks.filters.searchPlaceholder")}
             className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
           />
         </div>
@@ -630,11 +646,11 @@ export function TasksView({
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Список задач
+          {t("tasks.listHeader")}
         </div>
         {isLoading ? (
           <div className="flex items-center justify-center px-6 py-8 text-sm text-slate-500">
-            Загрузка задач...
+            {t("tasks.loading")}
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center gap-2 px-6 py-8 text-center text-sm text-rose-600">
@@ -644,12 +660,12 @@ export function TasksView({
         ) : filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center text-sm text-slate-500">
             <div className="text-2xl">📝</div>
-            <div>Нет задач по выбранным фильтрам или поиску.</div>
+            <div>{t("tasks.emptyFilters")}</div>
             <button
               onClick={handleOpenCreate}
               className="mt-1 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
             >
-              Создать первую задачу
+              {t("tasks.createFirst")}
             </button>
           </div>
         ) : (
@@ -686,11 +702,7 @@ export function TasksView({
                           PRIORITY_COLORS[task.priority]
                         }`}
                       >
-                        {
-                          PRIORITY_OPTIONS.find(
-                            (p) => p.id === task.priority
-                          )?.label
-                        }
+                        {getPriorityLabel(task.priority)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -699,6 +711,10 @@ export function TasksView({
                           categoryOptions.find(
                             (c) => c.id === task.category
                           ) || {};
+                        const label = getCategoryLabel(
+                          task.category,
+                          (cat as any).label
+                        );
                         return (
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
                             <span
@@ -710,9 +726,7 @@ export function TasksView({
                                   "#64748b",
                               }}
                             />
-                            {(cat as any).label ||
-                              task.category ||
-                              "Без категории"}
+                            {label}
                           </span>
                         );
                       })()}
@@ -727,7 +741,7 @@ export function TasksView({
                         {task.dueDate}{" "}
                         {taskTimes[task.id]
                           ? taskTimes[task.id]
-                          : "— без времени"}
+                          : `— ${t("tasks.noTime")}`}
                       </span>
                     </div>
                   </div>
@@ -742,13 +756,13 @@ export function TasksView({
                     onClick={() => handleOpenEdit(task)}
                     className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
                   >
-                    Редактировать
+                    {t("tasks.actions.edit")}
                   </button>
                   <button
                     onClick={() => handleDelete(task.id)}
                     className="rounded-lg px-2 py-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
                   >
-                    Удалить
+                    {t("tasks.actions.delete")}
                   </button>
                 </div>
               </li>

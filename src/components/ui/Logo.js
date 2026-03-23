@@ -18,6 +18,7 @@ export function Logo({ align = "center" }) {
           width={62}
           height={32}
           className="h-8 w-auto"
+          style={{ width: "auto" }}
           priority
         />
       </div>

@@ -5,8 +5,10 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { AuthScreen } from "../components/auth/AuthScreen";
 import { AppShell } from "../components/layout/AppShell";
+import { useLanguage } from "../lib/i18n";
 
 type AuthMode = "login" | "register";
+type AuthModeWithForgot = AuthMode | "forgot";
 
 type AuthenticatedPayload = {
   user: User | null;
@@ -14,9 +16,10 @@ type AuthenticatedPayload = {
 };
 
 export default function Home() {
+  const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authMode, setAuthMode] = useState<AuthModeWithForgot>("login");
   const [activeSection, setActiveSection] = useState("dashboard");
 
   useEffect(() => {
@@ -82,7 +85,7 @@ export default function Home() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
         <div className="rounded-2xl bg-white px-6 py-4 text-sm text-slate-500 shadow">
-          Загрузка...
+          {t("common.loading")}
         </div>
       </div>
     );

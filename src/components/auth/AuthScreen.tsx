@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import { Logo } from "../../components/ui/Logo";
+import { useLanguage } from "../../lib/i18n";
 
 type AuthMode = "login" | "register" | "forgot";
 
@@ -17,6 +18,8 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
   const isLogin = mode === "login";
   const isRegister = mode === "register";
   const isForgot = mode === "forgot";
+
+  const { t } = useLanguage();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +45,7 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
 
     try {
       if (!email) {
-        throw new Error("Заполните email.");
+        throw new Error(t("auth.errors.emailRequired"));
       }
 
       if (isForgot) {
@@ -55,26 +58,24 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
 
         if (error) throw error;
 
-        setInfo(
-          "Мы отправили письмо с кодом и ссылкой для восстановления пароля. Проверьте почту."
-        );
+        setInfo(t("auth.recovery.info"));
         return;
       }
 
       if (!password) {
-        throw new Error("Заполните пароль.");
+        throw new Error(t("auth.errors.passwordRequired"));
       }
 
       if (isRegister && password !== passwordConfirm) {
-        throw new Error("Пароли не совпадают.");
+        throw new Error(t("auth.errors.passwordMismatch"));
       }
 
       if (isRegister && !name) {
-        throw new Error("Заполните имя.");
+        throw new Error(t("auth.errors.nameRequired"));
       }
 
       if (!supabase) {
-        throw new Error("Supabase не инициализирован.");
+        throw new Error(t("auth.errors.supabaseNotReady"));
       }
 
       if (isLogin) {
@@ -98,14 +99,14 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
 
         if (!data.user) {
           throw new Error(
-            "Пользователь зарегистрирован. Проверьте почту и подтвердите аккаунт."
+            t("auth.register.pending")
           );
         }
 
         onAuthenticated({ user: data.user, rememberMe: true });
       }
     } catch (err: any) {
-      setError(err.message ?? "Ошибка авторизации.");
+      setError(err.message ?? t("auth.errors.generic"));
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +127,7 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
               isLogin ? "bg-white text-slate-900 shadow-sm" : ""
             }`}
           >
-            Вход
+            {t("auth.login")}
           </button>
           <button
             type="button"
@@ -135,13 +136,13 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
               isRegister ? "bg-white text-slate-900 shadow-sm" : ""
             }`}
           >
-            Регистрация
+            {t("auth.register")}
           </button>
         </div>
 
         {isForgot && (
           <div className="mb-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-700">
-            Введите email, и мы отправим код и ссылку для восстановления пароля.
+            {t("auth.recovery.description")}
           </div>
         )}
 
@@ -149,12 +150,12 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
           {isRegister && (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-slate-700">
-                Имя
+                {t("auth.register.name")}
               </label>
               <input
                 type="text"
                 name="name"
-                placeholder="Как к вам обращаться"
+                placeholder={t("auth.register.namePlaceholder")}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
               />
             </div>
@@ -162,13 +163,13 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-slate-700">
-              Email
+              {t("auth.email")}
             </label>
             <input
               type="email"
               required
               name="email"
-              placeholder="you@example.com"
+              placeholder={t("auth.emailPlaceholder")}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
             />
           </div>
@@ -176,13 +177,13 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
           {!isForgot && (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-slate-700">
-                Пароль
+                {t("auth.password")}
               </label>
               <input
                 type="password"
                 required
                 name="password"
-                placeholder="Минимум 8 символов"
+                placeholder={t("auth.passwordPlaceholder")}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
               />
             </div>
@@ -191,12 +192,13 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
           {isRegister && (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-slate-700">
-                Повтор пароля
+                {t("auth.register.repeatPassword")}
               </label>
               <input
                 type="password"
                 required
                 name="passwordConfirm"
+                placeholder={t("auth.register.repeatPasswordPlaceholder")}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none ring-sky-500 focus:ring-2"
               />
             </div>
@@ -211,14 +213,14 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                Запомнить меня
+                {t("auth.login.rememberMe")}
               </label>
               <button
                 type="button"
                 className="text-sky-600 hover:text-sky-700"
                 onClick={() => onModeChange("forgot")}
               >
-                Забыли пароль?
+              {t("auth.login.forgotPassword")}
               </button>
             </div>
           )}
@@ -229,7 +231,7 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
                 type="checkbox"
                 className="h-3.5 w-3.5 rounded border-slate-300"
               />
-              Я принимаю условия использования
+              {t("auth.register.acceptTerms")}
             </label>
           )}
 
@@ -250,12 +252,12 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
             className="mt-2 w-full rounded-lg bg-sky-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
           >
             {isLoading
-              ? "Обработка..."
+              ? t("auth.common.processing")
               : isForgot
-              ? "Восстановить пароль"
+              ? t("auth.recovery.submit")
               : isLogin
-              ? "Войти"
-              : "Создать аккаунт"}
+              ? t("auth.login.submit")
+              : t("auth.register.submit")}
           </button>
 
           {isForgot && (
@@ -264,7 +266,7 @@ export function AuthScreen({ mode, onModeChange, onAuthenticated }: AuthScreenPr
               className="mt-2 w-full text-center text-xs text-slate-500 hover:text-slate-700"
               onClick={() => onModeChange("login")}
             >
-              Вернуться к входу
+              {t("auth.recovery.backToLogin")}
             </button>
           )}
         </form>
