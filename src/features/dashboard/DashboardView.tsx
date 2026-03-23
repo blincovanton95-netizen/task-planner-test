@@ -191,7 +191,7 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
             {t("dashboard.welcome").replace("{name}", displayName)}
           </h2>
         </div>
@@ -208,42 +208,42 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
           title={t("dashboard.stats.todayTitle")}
           value={isLoading ? "…" : String(stats.today)}
           subtitle={t("dashboard.stats.todayDesc")}
-          accent="border-sky-200 bg-sky-50"
+          accent="border-sky-200 bg-sky-50 dark:bg-slate-900"
         />
         <DashboardCard
           title={t("dashboard.stats.weekTitle")}
           value={isLoading ? "…" : String(stats.week)}
           subtitle={t("dashboard.stats.weekDesc")}
-          accent="border-violet-200 bg-violet-50"
+          accent="border-violet-200 bg-violet-50 dark:bg-slate-900"
         />
         <DashboardCard
           title={t("dashboard.stats.overdueTitle")}
           value={isLoading ? "…" : String(stats.overdue)}
           subtitle={t("dashboard.stats.overdueDesc")}
-          accent="border-rose-200 bg-rose-50"
+          accent="border-rose-200 bg-rose-50 dark:bg-slate-900"
         />
         <DashboardCard
           title={t("dashboard.stats.completedTitle")}
           value={isLoading ? "…" : String(stats.completedLast7)}
           subtitle={t("dashboard.stats.completedDesc")}
-          accent="border-emerald-200 bg-emerald-50"
+          accent="border-emerald-200 bg-emerald-50 dark:bg-slate-900"
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2 dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
               {t("dashboard.upcoming.title")}
             </h3>
-            <span className="text-xs text-slate-400">{t("dashboard.upcoming.period")}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-300">{t("dashboard.upcoming.period")}</span>
           </div>
           {isLoading ? (
             <div className="px-2 py-4 text-xs text-slate-500">
               {t("tasks.loading")}
             </div>
           ) : upcomingTasks.length === 0 ? (
-            <div className="px-2 py-4 text-xs text-slate-500">
+            <div className="px-2 py-4 text-xs text-slate-500 dark:text-slate-300">
               {t("dashboard.upcoming.empty")}
             </div>
           ) : (
@@ -277,8 +277,8 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
           )}
         </div>
 
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-800">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bg-slate-900">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
             {t("dashboard.categories.title")}
           </h3>
           <ul className="space-y-2 text-xs text-slate-600">
@@ -307,7 +307,7 @@ export function DashboardView({ user, onCreateTask }: DashboardViewProps) {
               );
             })}
             {tasks.length === 0 && !isLoading && (
-              <li className="text-xs text-slate-500">{t("dashboard.categories.empty")}</li>
+              <li className="text-xs text-slate-500 dark:text-slate-300">{t("dashboard.categories.empty")}</li>
             )}
           </ul>
         </div>
@@ -328,9 +328,9 @@ function DashboardCard({ title, value, subtitle, accent }: DashboardCardProps) {
     <div
       className={`rounded-xl border bg-white p-4 text-sm shadow-sm ${accent}`}
     >
-      <div className="text-xs font-medium text-slate-500">{title}</div>
-      <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
-      <div className="mt-1 text-[11px] text-slate-500">{subtitle}</div>
+      <div className="text-xs font-medium text-slate-500 dark:text-slate-300">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{value}</div>
+      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-300">{subtitle}</div>
     </div>
   );
 }

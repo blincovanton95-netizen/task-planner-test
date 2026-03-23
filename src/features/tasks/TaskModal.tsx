@@ -104,21 +104,21 @@ export function TaskModal({
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 px-4 py-6">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
             {initialTask ? t("tasks.modal.editTitle") : t("tasks.modal.newTitle")}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             ✕
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 text-sm">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-white">
               {t("tasks.modal.titleLabel")}
             </label>
             <input
@@ -126,12 +126,12 @@ export function TaskModal({
               onChange={(e) => setTitle(e.target.value)}
               required
               placeholder={t("tasks.modal.titlePlaceholder")}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700  dark:text-white">
               {t("tasks.modal.descriptionLabel")}
             </label>
             <textarea
@@ -139,13 +139,13 @@ export function TaskModal({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder={t("tasks.modal.descriptionPlaceholder")}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
             />
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1 md:col-span-2">
-              <label className="block text-xs font-medium text-slate-700">
+              <label className="block text-xs font-medium text-slate-700 dark:text-white">
                 {t("tasks.modal.dueDateLabel")}
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -153,24 +153,24 @@ export function TaskModal({
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
                 />
                 <input
                   type="time"
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
                 />
               </div>
             </div>
             <div className="space-y-1">
-              <label className="block text-xs font-medium text-slate-700">
+              <label className="block text-xs font-medium text-slate-700 dark:text-white">
                 {t("tasks.modal.priorityLabel")}
               </label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
               >
                 {PRIORITY_OPTIONS.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -183,7 +183,7 @@ export function TaskModal({
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="block text-xs font-medium text-slate-700">
+              <label className="block text-xs font-medium text-slate-700 dark:text-white">
                 {t("tasks.modal.categoryLabel")}
               </label>
               <select
@@ -196,7 +196,7 @@ export function TaskModal({
                     setCategory(e.target.value);
                   }
                 }}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
               >
                 {categoryOptions.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -206,13 +206,13 @@ export function TaskModal({
                 <option value="__new">{t("tasks.modal.categoryNewOption")}</option>
               </select>
               {isNewCategory && (
-                <div className="mt-2 flex flex-col gap-2 text-xs text-slate-600">
+                <div className="mt-2 flex flex-col gap-2 text-xs text-slate-600 dark:text-slate-300">
                   <input
                     type="text"
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     placeholder={t("tasks.modal.categoryNamePlaceholder")}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs outline-none ring-sky-500 focus:ring-2"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
                   />
                   <div className="flex items-center gap-2">
                     <span>{t("tasks.modal.colorLabel")}</span>
@@ -220,7 +220,7 @@ export function TaskModal({
                       type="color"
                       value={newCategoryColor}
                       onChange={(e) => setNewCategoryColor(e.target.value)}
-                      className="h-6 w-10 cursor-pointer rounded border border-slate-200 bg-transparent p-0"
+                      className="h-6 w-10 cursor-pointer rounded border border-slate-200 bg-transparent p-0 dark:border-white"
                     />
                   </div>
                 </div>
@@ -233,11 +233,11 @@ export function TaskModal({
                   type="checkbox"
                   checked={completed}
                   onChange={(e) => setCompleted(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
+                  className="h-4 w-4 rounded border-slate-300 dark:border-white dark:bg-slate-800"
                 />
                 <label
                   htmlFor="completed"
-                  className="text-xs font-medium text-slate-700"
+                  className="text-xs font-medium text-slate-700 dark:text-white"
                 >
                   {t("tasks.modal.completedLabel")}
                 </label>
@@ -249,7 +249,7 @@ export function TaskModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               {t("tasks.modal.cancel")}
             </button>

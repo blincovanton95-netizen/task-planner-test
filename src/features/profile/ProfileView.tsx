@@ -147,15 +147,15 @@ export function ProfileView({ user }: ProfileViewProps) {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
           {t("profile.title")}
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {t("profile.subtitle")}
         </p>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-600 text-lg font-semibold text-white">
             {displayName
@@ -166,10 +166,10 @@ export function ProfileView({ user }: ProfileViewProps) {
               .toUpperCase()}
           </div>
           <div>
-            <div className="text-sm font-medium text-slate-900">
+            <div className="text-sm font-medium text-slate-900 dark:text-white">
               {displayName}
             </div>
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-400">
               {user?.email || t("profile.emailNotSet")}
             </div>
           </div>
@@ -177,7 +177,7 @@ export function ProfileView({ user }: ProfileViewProps) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-white">
               {t("profile.name")}
             </label>
             <input
@@ -191,22 +191,22 @@ export function ProfileView({ user }: ProfileViewProps) {
                   return next;
                 });
               }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-white">
               {t("profile.email")}
             </label>
             <input
               type="email"
               value={user?.email || ""}
               disabled
-              className="w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+              className="w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500 dark:border-white dark:bg-slate-800 dark:text-slate-400"
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-white">
               {t("profile.language")}
             </label>
             <select
@@ -222,7 +222,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   setLanguage(value);
                 }
               }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
             >
               <option value="ru">Русский</option>
               <option value="en">English</option>
@@ -231,32 +231,32 @@ export function ProfileView({ user }: ProfileViewProps) {
         </div>
 
         {message && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {message}
           </p>
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
           {t("profile.stats.title")}
         </h3>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <div>
-            <div className="text-xs text-slate-500">{t("profile.stats.totalTasks")}</div>
-            <div className="mt-1 text-lg font-semibold text-slate-900">
+            <div className="text-xs text-slate-500 dark:text-slate-400">{t("profile.stats.totalTasks")}</div>
+            <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
               {totalTasks}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">{t("profile.stats.completedTasks")}</div>
-            <div className="mt-1 text-lg font-semibold text-emerald-600">
+            <div className="text-xs text-slate-500 dark:text-slate-400">{t("profile.stats.completedTasks")}</div>
+            <div className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
               {completedTasks}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">{t("profile.stats.completedWeek")}</div>
-            <div className="mt-1 text-lg font-semibold text-sky-600">
+            <div className="text-xs text-slate-500 dark:text-slate-400">{t("profile.stats.completedWeek")}</div>
+            <div className="mt-1 text-lg font-semibold text-sky-600 dark:text-sky-400">
               {completedWeek}
             </div>
           </div>

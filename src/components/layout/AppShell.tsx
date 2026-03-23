@@ -21,7 +21,7 @@ export function AppShell({ user, activeSection, onSectionChange }: AppShellProps
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-900">
+    <div className="flex min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-white">
       <Sidebar activeSection={activeSection} onSectionChange={onSectionChange} />
       <div className="relative flex flex-1 flex-col">
         <Header

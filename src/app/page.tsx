@@ -22,7 +22,7 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<AuthModeWithForgot>("login");
   const [activeSection, setActiveSection] = useState("dashboard");
 
-  useEffect(() => {
+   useEffect(() => {
     if (!supabase) {
       setAuthChecked(true);
       return;
@@ -67,7 +67,7 @@ export default function Home() {
       ignore = true;
       subscription?.subscription?.unsubscribe();
     };
-  }, []);
+  }, []); 
 
   const handleAuthenticated = ({ user, rememberMe }: AuthenticatedPayload) => {
     setUser(user);
@@ -81,7 +81,7 @@ export default function Home() {
 
   const isAuthenticated = !!user;
 
-  if (!authChecked && supabase) {
+   if (!authChecked && supabase) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
         <div className="rounded-2xl bg-white px-6 py-4 text-sm text-slate-500 shadow">
@@ -99,7 +99,7 @@ export default function Home() {
         onAuthenticated={handleAuthenticated}
       />
     );
-  }
+  } 
 
   return (
     <AppShell

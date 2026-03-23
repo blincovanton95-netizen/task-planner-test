@@ -1,5 +1,6 @@
 'use client';
 
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
@@ -28,7 +29,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
   const { t, setLanguage } = useLanguage();
 
   const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     let ignore = false;
@@ -232,38 +233,37 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 dark:space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
           {t("settings.title")}
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {t("settings.subtitle")}
         </p>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
           {t("settings.title")}
         </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.theme")}
             </label>
             <select
+              key={theme} 
               value={theme}
-              onChange={(e) =>
-                setTheme(e.target.value === "dark" ? "dark" : "light")
-              }
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              onChange={(e) => setTheme(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
             >
               <option value="light">{t("settings.theme.light")}</option>
               <option value="dark">{t("settings.theme.dark")}</option>
             </select>
           </div>
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.language")}
             </label>
             <select
@@ -276,7 +276,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
                   setLanguage(value);
                 }
               }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2  dark:border-white dark:bg-slate-800 dark:text-white"
             >
               <option value="ru">Русский</option>
               <option value="en">English</option>
@@ -286,12 +286,12 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
 
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
           {t("settings.notifications.title")}
         </h3>
         <div className="space-y-2">
-          <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
+          <label className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
             <span>{t("settings.notifications.emailToggle")}</span>
             <input
               type="checkbox"
@@ -303,10 +303,10 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
                   emailNotificationsEnabled: value,
                 }));
               }}
-              className="h-4 w-4 rounded border-slate-300"
+              className="h-4 w-4 rounded border-slate-300 dark:border-white dark:bg-slate-800"
             />
           </label>
-          <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
+          <label className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
             <span>{t("settings.notifications.beforeDay")}</span>
             <input
               type="checkbox"
@@ -317,10 +317,10 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
                 updateUserSettings({ notify_before_day: value });
               }}
               disabled={!settings.emailNotificationsEnabled}
-              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50"
+              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50 dark:border-white dark:bg-slate-800"
             />
           </label>
-          <label className="flex items-center justify-between gap-3 text-xs text-slate-600">
+          <label className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
             <span>{t("settings.notifications.beforeHour")}</span>
             <input
               type="checkbox"
@@ -331,42 +331,42 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
                 updateUserSettings({ notify_before_hour: value });
               }}
               disabled={!settings.emailNotificationsEnabled}
-              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50"
+              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50 dark:border-white dark:bg-slate-800"
             />
           </label>
         </div>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
           {t("settings.security.title")}
         </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.security.oldPassword")}
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.security.newPassword")}
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
             />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.security.confirmPassword")}
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
             />
           </div>
         </div>
@@ -378,7 +378,7 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
           <button
             type="button"
             onClick={handleSignOutAll}
-            className="text-xs font-medium text-rose-700 hover:underline"
+            className="text-xs font-medium text-rose-700 hover:underline dark:text-rose-400"
           >
             {t("settings.security.logoutAll")}
           </button>

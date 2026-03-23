@@ -549,8 +549,8 @@ export function TasksView({
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">{t("tasks.title")}</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{t("tasks.title")}</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {t("tasks.subtitle")}
           </p>
         </div>
@@ -562,7 +562,7 @@ export function TasksView({
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 text-xs font-medium text-slate-600">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
         {VIEW_MODES.map((mode) => (
           <button
             key={mode.id}
@@ -570,7 +570,7 @@ export function TasksView({
             className={`rounded-full px-3 py-1 transition ${
               viewMode === mode.id
                 ? "bg-sky-600 text-white"
-                : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                : "bg-slate-50 text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
             }`}
           >
             {t(`tasks.tabs.${mode.id}`)}
@@ -578,15 +578,15 @@ export function TasksView({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+      <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-300">
             {t("tasks.filters.category")}
           </span>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
           >
             <option value="all">{t("tasks.tabs.all")}</option>
             {categoryOptions.map((cat) => (
@@ -598,13 +598,13 @@ export function TasksView({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-300">
             {t("tasks.filters.priority")}
           </span>
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
           >
             <option value="all">{t("tasks.tabs.all")}</option>
             {PRIORITY_OPTIONS.map((pr) => (
@@ -616,13 +616,13 @@ export function TasksView({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-300">
             {t("tasks.filters.sorting")}
           </span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
           >
             <option value="dueDateAsc">{t("tasks.filters.sortingDateAsc")}</option>
             <option value="dueDateDesc">{t("tasks.filters.sortingDateDesc")}</option>
@@ -631,7 +631,7 @@ export function TasksView({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-300">
             {t("tasks.filters.search")}
           </span>
           <input
@@ -639,48 +639,48 @@ export function TasksView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("tasks.filters.searchPlaceholder")}
-            className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2"
+            className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
           />
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="border-b border-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:text-slate-300">
           {t("tasks.listHeader")}
         </div>
         {isLoading ? (
-          <div className="flex items-center justify-center px-6 py-8 text-sm text-slate-500">
+          <div className="flex items-center justify-center px-6 py-8 text-sm text-slate-500 dark:text-slate-400">
             {t("tasks.loading")}
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center gap-2 px-6 py-8 text-center text-sm text-rose-600">
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-8 text-center text-sm text-rose-600 dark:text-rose-400">
             <div className="text-2xl">⚠️</div>
             <div>{error}</div>
           </div>
         ) : filteredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center text-sm text-slate-500">
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
             <div className="text-2xl">📝</div>
             <div>{t("tasks.emptyFilters")}</div>
             <button
               onClick={handleOpenCreate}
-              className="mt-1 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+              className="mt-1 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-400 dark:hover:bg-sky-900/50"
             >
               {t("tasks.createFirst")}
             </button>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {filteredTasks.map((task) => (
               <li
                 key={task.id}
-                className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-slate-50"
+                className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <button
                   onClick={() => toggleCompleted(task.id, task.completed)}
                   className={`mt-1 h-4 w-4 rounded border text-xs ${
                     task.completed
                       ? "border-emerald-500 bg-emerald-500 text-white"
-                      : "border-slate-300 bg-white"
+                      : "border-slate-300 bg-white dark:border-white dark:bg-slate-800"
                   }`}
                 >
                   {task.completed ? "✓" : ""}
@@ -692,7 +692,7 @@ export function TasksView({
                         className={`text-sm font-medium ${
                           task.completed
                             ? "text-slate-400 line-through"
-                            : "text-slate-900"
+                            : "text-slate-900 dark:text-white"
                         }`}
                       >
                         {task.title}
@@ -705,7 +705,7 @@ export function TasksView({
                         {getPriorityLabel(task.priority)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                       {(() => {
                         const cat =
                           categoryOptions.find(
@@ -754,13 +754,13 @@ export function TasksView({
                 <div className="flex flex-col items-end gap-1 text-xs">
                   <button
                     onClick={() => handleOpenEdit(task)}
-                    className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                   >
                     {t("tasks.actions.edit")}
                   </button>
                   <button
                     onClick={() => handleDelete(task.id)}
-                    className="rounded-lg px-2 py-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                    className="rounded-lg px-2 py-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/30 dark:hover:text-rose-300"
                   >
                     {t("tasks.actions.delete")}
                   </button>

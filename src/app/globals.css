@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
+@variant dark (&:is(.dark *));
 :root {
   --background: #f3f4f6;
   --foreground: #0f172a;
 }
+
+
+.dark {
+  --background: #020617;
+  --foreground: #e5e7eb;
+} 
 
 @theme inline {
   --color-background: var(--background);
@@ -42,4 +49,5 @@ select,
 button {
   font: inherit;
 }
+
 

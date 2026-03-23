@@ -23,7 +23,7 @@ export function Logo({ align = "center" }) {
         />
       </div>
       <div>
-        <div className="text-sm font-semibold tracking-tight text-slate-900">
+        <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">
           Task Planner
         </div>
       </div>
