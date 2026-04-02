@@ -88,11 +88,11 @@ return (
   />
 );
 4. Инициализация Supabase
-src/lib/supabaseClient.js
+src/lib/supabaseClient.ts
 Берёт NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY из env.
 Если их нет – пишет предупреждение в консоль и экспортирует supabase = null, чтобы фронтенд мог работать в “демо”-режиме без сохранения.
 
-supabaseClient.js
+supabaseClient.ts
 Lines 1-19
 export const supabase =
   supabaseUrl && supabaseAnonKey

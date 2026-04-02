@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import { useLanguage } from "../../lib/i18n";
+import type { AppProfileRole } from "../../types/profile";
 
 interface ProfileViewProps {
   user: User;
+  profileRole: AppProfileRole;
 }
 
 type ProfileData = {
@@ -19,23 +21,81 @@ const DEFAULT_PROFILE: ProfileData = {
   language: "ru",
 };
 
-export function ProfileView({ user }: ProfileViewProps) {
+// Debounce хук для автосохранения
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+export function ProfileView({ user, profileRole }: ProfileViewProps) {
   const { t, setLanguage } = useLanguage();
 
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
   const [message, setMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Статистика
   const [totalTasks, setTotalTasks] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
   const [completedWeek, setCompletedWeek] = useState(0);
 
-  const displayName =
-    profile.full_name || user?.user_metadata?.full_name || user?.email || "Пользователь";
+  // Мемоизация имени для аватара
+  const displayName = useMemo(() => {
+    return profile.full_name || 
+           (user.user_metadata?.full_name as string) || 
+           user?.email || 
+           t("header.guest");
+  }, [profile.full_name, user, t]);
 
+  // Мемоизация инициалов
+  const initials = useMemo(() => {
+    return displayName
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }, [displayName]);
+
+  // Debounced профиль для автосохранения
+  const debouncedProfile = useDebounce(profile, 1000);
+  const prevProfileRef = useRef(profile);
+
+  // Автосохранение при изменении debounced профиля
+  useEffect(() => {
+    // Не сохраняем при первой загрузке
+    if (prevProfileRef.current === DEFAULT_PROFILE && profile === DEFAULT_PROFILE) {
+      prevProfileRef.current = profile;
+      return;
+    }
+    
+    // Сохраняем только если реально изменилось
+    if (debouncedProfile !== prevProfileRef.current) {
+      void persistProfile(debouncedProfile);
+      prevProfileRef.current = debouncedProfile;
+    }
+  }, [debouncedProfile]);
+
+  // Загрузка профиля
   useEffect(() => {
     let ignore = false;
 
     async function loadProfile() {
-      if (!supabase || !user) return;
+      if (!supabase || !user) {
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
       const { data, error } = await supabase
         .from("profiles")
         .select("full_name, language")
@@ -45,10 +105,7 @@ export function ProfileView({ user }: ProfileViewProps) {
       if (!ignore) {
         if (!error && data) {
           const nextProfile: ProfileData = {
-            full_name:
-              data.full_name ||
-              (user.user_metadata?.full_name as string | undefined) ||
-              "",
+            full_name: data.full_name || (user.user_metadata?.full_name as string) || "",
             language: data.language || "ru",
           };
           setProfile(nextProfile);
@@ -56,27 +113,23 @@ export function ProfileView({ user }: ProfileViewProps) {
             setLanguage(nextProfile.language);
           }
         } else {
+          // Fallback на метаданные
           setProfile((prev) => ({
             ...prev,
-            full_name:
-              (user.user_metadata?.full_name as string | undefined) ||
-              prev.full_name,
+            full_name: (user.user_metadata?.full_name as string) || prev.full_name,
           }));
         }
+        setIsLoading(false);
       }
     }
 
     loadProfile();
+    return () => { ignore = true; };
+  }, [user, setLanguage]);
 
-    return () => {
-      ignore = true;
-    };
-  }, [user]);
-
-  // Статистика продуктивности по задачам
+  // Загрузка статистики
   useEffect(() => {
     if (!supabase || !user) return;
-
     let ignore = false;
 
     async function loadStats() {
@@ -86,10 +139,8 @@ export function ProfileView({ user }: ProfileViewProps) {
         .eq("user_id", user.id);
 
       if (ignore) return;
-
       if (error) {
-        // eslint-disable-next-line no-console
-        console.error("Не удалось загрузить статистику задач:", error.message);
+        console.error("Failed to load stats:", error.message);
         return;
       }
 
@@ -98,11 +149,7 @@ export function ProfileView({ user }: ProfileViewProps) {
       const completed = rows.filter((t) => t.completed).length;
 
       const today = new Date();
-      const weekAgo = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() - 7
-      );
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       const completedInWeek = rows.filter((t) => {
         if (!t.completed || !t.dueDate) return false;
@@ -116,153 +163,187 @@ export function ProfileView({ user }: ProfileViewProps) {
     }
 
     loadStats();
-
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [user]);
 
-  async function persistProfile(next: ProfileData) {
+  // Сохранение профиля с состоянием загрузки
+  const persistProfile = useCallback(async (next: ProfileData) => {
     if (!supabase || !user) return;
+    
+    setIsSaving(true);
     setMessage(null);
 
-    const { error } = await supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email,
-        full_name: next.full_name || null,
-        language: next.language,
-      },
-      { onConflict: "id" }
-    );
+    try {
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          email: user.email,
+          full_name: next.full_name || null,
+          language: next.language,
+        },
+        { onConflict: "id" }
+      );
 
-    if (error) {
-      setMessage(error.message ?? "Не удалось сохранить профиль.");
-    } else {
-      // Успешное сохранение не показываем (убрали "Изменения сохранены").
-      setMessage(null);
+      if (error) {
+        setMessage(error.message ?? t("profile.errors.saveFailed"));
+      }
+      // Успех: не показываем сообщение, чтобы не отвлекать
+    } catch (err) {
+      setMessage(t("profile.errors.saveFailed"));
+    } finally {
+      setIsSaving(false);
     }
+  }, [user, t]);
+
+  // ✅ УДАЛЕНО: handleNameChange (имя больше не редактируется)
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16 text-muted-foreground">
+        {t("common.loading")}
+      </div>
+    );
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
+      {/* Заголовок */}
       <div>
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-          {t("profile.title")}
-        </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {t("profile.subtitle")}
-        </p>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{t("profile.title")}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("profile.subtitle")}</p>
       </div>
 
+      {/* Карточка профиля */}
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        {/* Аватар + инфо */}
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-600 text-lg font-semibold text-white">
-            {displayName
-              .split(" ")
-              .map((p) => p[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase()}
+          <div 
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-600 text-lg font-semibold text-white"
+            aria-hidden="true"
+          >
+            {initials}
           </div>
           <div>
-            <div className="text-sm font-medium text-slate-900 dark:text-white">
-              {displayName}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-400">
+            <div className="text-sm font-medium text-slate-900 dark:text-white">{displayName}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               {user?.email || t("profile.emailNotSet")}
             </div>
           </div>
         </div>
 
+        {/* Форма — ТОЛЬКО ОТОБРАЖЕНИЕ (без редактирования) */}
         <div className="grid gap-4 md:grid-cols-2">
+          {/* Имя — ТОЛЬКО ОТОБРАЖЕНИЕ */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-white">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-200">
               {t("profile.name")}
             </label>
-            <input
-              type="text"
-              value={profile.full_name}
-              onChange={(e) => {
-                const value = e.target.value;
-                setProfile((prev) => {
-                  const next = { ...prev, full_name: value };
-                  void persistProfile(next);
-                  return next;
-                });
-              }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
-            />
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+              {displayName}
+            </div>
           </div>
+
+          {/* Email (только чтение) */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-white">
+            <label 
+              htmlFor="profile-email" 
+              className="block text-xs font-medium text-slate-700 dark:text-slate-200"
+            >
               {t("profile.email")}
             </label>
             <input
+              id="profile-email"
               type="email"
               value={user?.email || ""}
               disabled
-              className="w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500 dark:border-white dark:bg-slate-800 dark:text-slate-400"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
             />
           </div>
+
+          {/* Язык интерфейса — ТОЛЬКО ОТОБРАЖЕНИЕ */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-white">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-200">
               {t("profile.language")}
             </label>
-            <select
-              value={profile.language}
-              onChange={(e) => {
-                const value = e.target.value;
-                setProfile((prev) => {
-                  const next = { ...prev, language: value };
-                  void persistProfile(next);
-                  return next;
-                });
-                if (value === "ru" || value === "en") {
-                  setLanguage(value);
-                }
-              }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
-            >
-              <option value="ru">Русский</option>
-              <option value="en">English</option>
-            </select>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+              {profile.language === "ru" 
+                ? "Русский" 
+                : profile.language === "en" 
+                  ? "English" 
+                  : profile.language}
+            </div>
+          </div>
+
+          {/* Роль */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-200">
+              {t("profile.role")}
+            </label>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+              {profileRole === "admin" ? t("profile.role.admin") : t("profile.role.user")}
+            </div>
           </div>
         </div>
 
-        {message && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {message}
-          </p>
-        )}
+        {/* Статус сохранения / ошибки */}
+        <div className="min-h-[1.25rem]">
+          {isSaving && (
+            <p className="text-xs text-muted-foreground animate-pulse">
+              {t("common.saving")}
+            </p>
+          )}
+          {message && !isSaving && (
+            <p className="text-xs text-rose-600 dark:text-rose-400" role="alert">
+              {message}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
+      {/* Статистика */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-white">
           {t("profile.stats.title")}
-        </h3>
-        <div className="mt-3 grid gap-4 md:grid-cols-3">
-          <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">{t("profile.stats.totalTasks")}</div>
-            <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-              {totalTasks}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">{t("profile.stats.completedTasks")}</div>
-            <div className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-              {completedTasks}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">{t("profile.stats.completedWeek")}</div>
-            <div className="mt-1 text-lg font-semibold text-sky-600 dark:text-sky-400">
-              {completedWeek}
-            </div>
-          </div>
+        </h2>
+        <div className="mt-3 grid gap-4 md:grid-cols-3" role="list">
+          <StatItem 
+            label={t("profile.stats.totalTasks")} 
+            value={totalTasks} 
+            ariaLabel={t("profile.stats.totalTasks")}
+          />
+          <StatItem 
+            label={t("profile.stats.completedTasks")} 
+            value={completedTasks} 
+            className="text-emerald-600 dark:text-emerald-400"
+            ariaLabel={t("profile.stats.completedTasks")}
+          />
+          <StatItem 
+            label={t("profile.stats.completedWeek")} 
+            value={completedWeek} 
+            className="text-primary"
+            ariaLabel={t("profile.stats.completedWeek")}
+          />
         </div>
       </div>
     </div>
   );
 }
 
+// Вынесенный компонент для статистики
+interface StatItemProps {
+  label: string;
+  value: number;
+  className?: string;
+  ariaLabel?: string;
+}
+
+function StatItem({ label, value, className, ariaLabel }: StatItemProps) {
+  return (
+    <div role="listitem">
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className={`mt-1 text-lg font-semibold text-slate-900 dark:text-white ${className || ""}`} aria-label={ariaLabel}>
+        {value}
+      </div>
+    </div>
+  );
+}

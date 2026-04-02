@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import { useLanguage } from "../../lib/i18n";
@@ -11,26 +11,36 @@ interface SettingsViewProps {
   onSignedOutAll?: () => void;
 }
 
+// Типизированные настройки
 type ProfileSettings = {
   language: string;
   notifyBeforeDay: boolean;
   notifyBeforeHour: boolean;
-  emailNotificationsEnabled: boolean;
+  notificationsEnabled: boolean; // ✅ Переименовано: было emailNotificationsEnabled
 };
 
 const DEFAULT_SETTINGS: ProfileSettings = {
   language: "ru",
   notifyBeforeDay: false,
   notifyBeforeHour: false,
-  emailNotificationsEnabled: true,
+  notificationsEnabled: true, // ✅ Переименовано
 };
 
 export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
   const { t, setLanguage } = useLanguage();
-
-  const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
   const { theme, setTheme } = useTheme();
 
+  const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  
+  // Состояния для смены пароля
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Загрузка языка из профиля
   useEffect(() => {
     let ignore = false;
 
@@ -42,33 +52,21 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         .eq("id", user.id)
         .single();
 
-      if (!ignore) {
-        if (!error && data) {
-          const next: ProfileSettings = {
-            language: data.language || DEFAULT_SETTINGS.language,
-            notifyBeforeDay: DEFAULT_SETTINGS.notifyBeforeDay,
-            notifyBeforeHour: DEFAULT_SETTINGS.notifyBeforeHour,
-            emailNotificationsEnabled: DEFAULT_SETTINGS.emailNotificationsEnabled,
-          };
-          setSettings(next);
-          if (next.language === "ru" || next.language === "en") {
-            setLanguage(next.language);
-          }
+      if (!ignore && !error && data?.language) {
+        const lang = data.language;
+        if (lang === "ru" || lang === "en") {
+          setSettings((prev) => ({ ...prev, language: lang }));
+          setLanguage(lang);
         }
       }
     }
-
     loadProfile();
+    return () => { ignore = true; };
+  }, [user, setLanguage]);
 
-    return () => {
-      ignore = true;
-    };
-  }, [user]);
-
-  // загружаем настройки уведомлений из user_settings (без мастер-переключателя e-mail — он только на фронте)
+  // Загрузка настроек уведомлений из user_settings
   useEffect(() => {
     if (!supabase || !user) return;
-
     let ignore = false;
 
     async function loadUserSettings() {
@@ -78,313 +76,418 @@ export function SettingsView({ user, onSignedOutAll }: SettingsViewProps) {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (ignore) return;
-
-      if (!error && data) {
-        setSettings((prev) => ({
-          ...prev,
-          notifyBeforeDay: !!(data as any).notify_before_day,
-          notifyBeforeHour: !!(data as any).notify_before_hour,
-        }));
-      }
+      if (ignore || error || !data) return;
+      
+      setSettings((prev) => ({
+        ...prev,
+        notifyBeforeDay: Boolean(data.notify_before_day),
+        notifyBeforeHour: Boolean(data.notify_before_hour),
+      }));
     }
-
     loadUserSettings();
-
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [user]);
 
-  // загружаем тему и мастер-переключатель e-mail из localStorage
+  // ✅ Загрузка настроек уведомлений из localStorage (с поддержкой старого ключа)
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     try {
-      const storedTheme = window.localStorage.getItem("taskPlannerTheme");
-      if (storedTheme === "light" || storedTheme === "dark") {
-        setTheme(storedTheme);
-      }
-
-      const storedEmail = window.localStorage.getItem(
-        "taskPlannerEmailNotifications"
-      );
-      if (storedEmail === "0" || storedEmail === "1") {
+      // Поддерживаем старый ключ для обратной совместимости
+      const storedNew = window.localStorage.getItem("taskPlannerNotifications");
+      const storedOld = window.localStorage.getItem("taskPlannerEmailNotifications");
+      const storedValue = storedNew ?? storedOld;
+      
+      if (storedValue === "0" || storedValue === "1") {
         setSettings((prev) => ({
           ...prev,
-          emailNotificationsEnabled: storedEmail === "1",
+          notificationsEnabled: storedValue === "1",
         }));
       }
     } catch {
-      // ignore
+      // ignore localStorage errors
     }
   }, []);
 
-  // применяем тему ко всему приложению и сохраняем настройки в localStorage
+  // ✅ Сохранение настроек уведомлений в localStorage (новый ключ)
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    const root = document.documentElement;
-    root.classList.remove("theme-light", "theme-dark");
-    root.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
-
     try {
-      window.localStorage.setItem("taskPlannerTheme", theme);
       window.localStorage.setItem(
-        "taskPlannerEmailNotifications",
-        settings.emailNotificationsEnabled ? "1" : "0"
+        "taskPlannerNotifications", // ✅ Новый ключ
+        settings.notificationsEnabled ? "1" : "0"
       );
+      // ✅ Удаляем старый ключ, если он есть
+      window.localStorage.removeItem("taskPlannerEmailNotifications");
     } catch {
       // ignore
     }
-  }, [theme, settings.emailNotificationsEnabled]);
+  }, [settings.notificationsEnabled]);
 
-  async function persistProfileSettings(partial: {
-    language?: string;
-  }) {
+  // Сохранение настроек профиля с состоянием загрузки
+  const persistProfileSettings = useCallback(async (partial: { language?: string }) => {
     if (!supabase || !user) return;
+    setIsSaving(true);
+    setSaveError(null);
 
-    const next = {
-      language: partial.language ?? settings.language,
-    };
-
-    const { error } = await supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email,
-        language: next.language,
-      },
-      { onConflict: "id" }
-    );
-
-    if (error) {
-      // eslint-disable-next-line no-console
-      console.error("Не удалось сохранить настройки профиля:", error.message);
+    try {
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          email: user.email,
+          language: partial.language ?? settings.language,
+        },
+        { onConflict: "id" }
+      );
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to save profile settings:", err);
+      setSaveError(t("settings.errors.saveFailed"));
+    } finally {
+      setIsSaving(false);
     }
-  }
+  }, [user, settings.language, t]);
 
-  async function updateUserSettings(partial: {
+  // Упрощённое сохранение настроек уведомлений
+  const updateUserSettings = useCallback(async (partial: {
     notify_before_day?: boolean;
     notify_before_hour?: boolean;
-  }) {
-    if (!supabase || !user) return;
-
-    const payload = {
-      user_id: user.id,
-      notify_before_day:
-        partial.notify_before_day ?? settings.notifyBeforeDay,
-      notify_before_hour:
-        partial.notify_before_hour ?? settings.notifyBeforeHour,
-    };
-
-    // Ручной upsert, чтобы не зависеть от onConflict и индексов
-    const { data: existing, error: selectError } = await supabase
-      .from("user_settings")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (selectError) {
-      // eslint-disable-next-line no-console
-      console.error(
-        "Не удалось загрузить существующие настройки уведомлений:",
-        selectError.message
-      );
+  }) => {
+    if (!supabase || !user) {
+      console.error("❌ Supabase или user не доступны");
       return;
     }
+    
+    setIsSaving(true);
+    setSaveError(null);
 
-    let error = null;
+    try {
+      const payload = {
+        notify_before_day: partial.notify_before_day ?? settings.notifyBeforeDay,
+        notify_before_hour: partial.notify_before_hour ?? settings.notifyBeforeHour,
+        updated_at: new Date().toISOString(),
+      };
 
-    if (existing) {
-      const res = await supabase
+      console.log("🔍 Проверяем существующую запись...");
+      
+      // 1. Сначала проверяем, есть ли запись
+      const { data: existing, error: selectError } = await supabase
         .from("user_settings")
-        .update({
-          notify_before_day: payload.notify_before_day,
-          notify_before_hour: payload.notify_before_hour,
-        })
-        .eq("id", (existing as any).id);
-      error = res.error;
-    } else {
-      // При первой вставке связываем id с пользователем,
-      // чтобы удовлетворить внешнему ключу user_settings_id_fkey.
-      const res = await supabase
-        .from("user_settings")
-        .insert([{ id: user.id, ...payload }]);
-      error = res.error;
-    }
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (error) {
-      // eslint-disable-next-line no-console
-      console.error(
-        "Не удалось сохранить настройки уведомлений:",
-        error.message
-      );
-    }
-  }
+      if (selectError) {
+        console.error("❌ Ошибка SELECT:", selectError);
+        throw new Error(`SELECT failed: ${selectError.message}`);
+      }
 
+      console.log("📝 Existing record:", existing);
+
+      let saveError = null;
+
+      if (existing) {
+        // 2. Обновляем существующую запись
+        console.log("✏️ Обновляем запись id:", existing.id);
+        const { error } = await supabase
+          .from("user_settings")
+          .update(payload)
+          .eq("id", existing.id);
+        saveError = error;
+      } else {
+        // 3. Создаём новую запись
+        console.log("➕ Создаём новую запись для user_id:", user.id);
+        const { error } = await supabase
+          .from("user_settings")
+          .insert({ 
+            user_id: user.id, 
+            ...payload 
+          });
+        saveError = error;
+      }
+
+      if (saveError) {
+        console.error("❌ Ошибка SAVE:", saveError);
+        throw new Error(`SAVE failed: ${saveError.message}`);
+      }
+      
+      console.log("✅ Настройки успешно сохранены!");
+      
+    } catch (err: any) {
+      console.error("💥 Полная ошибка:", err);
+      console.error("💥 Message:", err?.message);
+      console.error("💥 Stack:", err?.stack);
+      setSaveError(err?.message ?? t("settings.errors.saveFailed"));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, settings.notifyBeforeDay, settings.notifyBeforeHour, t]);
+
+  // Глобальный выход из системы
   async function handleSignOutAll() {
     if (!supabase) return;
-    // Глобальный выход: ревок всех refresh-токенов и очистка локальной сессии.
-    await supabase.auth.signOut({ scope: "global" as any });
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("taskPlannerRememberMe");
+    try {
+      await supabase.auth.signOut({ scope: "global" });
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("taskPlannerRememberMe");
+      }
+      onSignedOutAll?.();
+    } catch (err) {
+      console.error("Sign out error:", err);
     }
-    onSignedOutAll?.();
   }
 
+  // Смена пароля
+  const handleChangePassword = useCallback(async () => {
+    if (!supabase || !user) return;
+    
+    setPasswordError(null);
+    setPasswordSuccess(false);
+    
+    // Валидация
+    if (newPassword.length < 8) {
+      setPasswordError(t("auth.errors.passwordTooShort"));
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setPasswordError(t("auth.errors.passwordNoUppercase"));
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setPasswordError(t("auth.errors.passwordNoNumber"));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t("auth.errors.passwordMismatch"));
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      // Supabase меняет пароль без проверки старого (требуется только активная сессия)
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      
+      if (error) throw error;
+      
+      setPasswordSuccess(true);
+      setNewPassword("");
+      setConfirmPassword("");
+      
+      // Скрываем сообщение об успехе через 3 секунды
+      setTimeout(() => setPasswordSuccess(false), 3000);
+      
+    } catch (err: any) {
+      console.error("Failed to change password:", err);
+      setPasswordError(err?.message ?? t("settings.errors.saveFailed"));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [supabase, user, newPassword, confirmPassword, t]);
+
+  // Обработчики с автосохранением
+  const handleLanguageChange = useCallback((value: string) => {
+    setSettings((prev) => ({ ...prev, language: value }));
+    void persistProfileSettings({ language: value });
+    if (value === "ru" || value === "en") {
+      setLanguage(value);
+    }
+  }, [persistProfileSettings, setLanguage]);
+
+  // ✅ Обновлённый обработчик: notificationsEnabled вместо emailNotificationsEnabled
+  const handleNotificationsToggle = useCallback((value: boolean) => {
+    setSettings((prev) => ({ ...prev, notificationsEnabled: value }));
+  }, []);
+
+  const handleNotifyDay = useCallback((value: boolean) => {
+    setSettings((prev) => ({ ...prev, notifyBeforeDay: value }));
+    void updateUserSettings({ notify_before_day: value });
+  }, [updateUserSettings]);
+
+  const handleNotifyHour = useCallback((value: boolean) => {
+    setSettings((prev) => ({ ...prev, notifyBeforeHour: value }));
+    void updateUserSettings({ notify_before_hour: value });
+  }, [updateUserSettings]);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 dark:space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
+      {/* Заголовок */}
       <div>
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-          {t("settings.title")}
-        </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {t("settings.subtitle")}
-        </p>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{t("settings.title")}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("settings.subtitle")}</p>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
-          {t("settings.title")}
-        </h3>
+      {/* Общие настройки */}
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-white">{t("settings.general")}</h2>
         <div className="grid gap-4 md:grid-cols-2">
+          {/* Тема */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="setting-theme" className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.theme")}
             </label>
             <select
-              key={theme} 
+              id="setting-theme"
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 disabled:opacity-50 dark:border-white dark:bg-slate-800 dark:text-white"
+              aria-label={t("settings.theme")}
             >
               <option value="light">{t("settings.theme.light")}</option>
               <option value="dark">{t("settings.theme.dark")}</option>
+              <option value="system">{t("admin.themeSystem")}</option>
             </select>
           </div>
+
+          {/* Язык */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="setting-language" className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.language")}
             </label>
             <select
+              id="setting-language"
               value={settings.language}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSettings((prev) => ({ ...prev, language: value }));
-                void persistProfileSettings({ language: value });
-                if (value === "ru" || value === "en") {
-                  setLanguage(value);
-                }
-              }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2  dark:border-white dark:bg-slate-800 dark:text-white"
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              disabled={isSaving}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 disabled:opacity-50 dark:border-white dark:bg-slate-800 dark:text-white"
+              aria-label={t("settings.language")}
             >
               <option value="ru">Русский</option>
               <option value="en">English</option>
             </select>
           </div>
         </div>
+      </section>
 
-      </div>
-
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
-          {t("settings.notifications.title")}
-        </h3>
-        <div className="space-y-2">
-          <label className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
-            <span>{t("settings.notifications.emailToggle")}</span>
+      {/* ✅ Уведомления (без упоминания email) */}
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-white">{t("settings.notifications.title")}</h2>
+        <div className="space-y-3">
+          {/* ✅ Мастер-переключатель уведомлений (без "Email-") */}
+          <label className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
+            <span>{t("settings.notifications.toggle")}</span>
             <input
               type="checkbox"
-              checked={settings.emailNotificationsEnabled}
-              onChange={(e) => {
-                const value = e.target.checked;
-                setSettings((prev) => ({
-                  ...prev,
-                  emailNotificationsEnabled: value,
-                }));
-              }}
-              className="h-4 w-4 rounded border-slate-300 dark:border-white dark:bg-slate-800"
+              id="notify-toggle"
+              checked={settings.notificationsEnabled}
+              onChange={(e) => handleNotificationsToggle(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 bg-white text-sky-600 focus:ring-sky-500 dark:border-white dark:bg-slate-800"
+              aria-label={t("settings.notifications.toggle")}
             />
           </label>
-          <label className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+
+          {/* Напоминание за день */}
+          <label className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
             <span>{t("settings.notifications.beforeDay")}</span>
             <input
               type="checkbox"
+              id="notify-day"
               checked={settings.notifyBeforeDay}
-              onChange={(e) => {
-                const value = e.target.checked;
-                setSettings((prev) => ({ ...prev, notifyBeforeDay: value }));
-                updateUserSettings({ notify_before_day: value });
-              }}
-              disabled={!settings.emailNotificationsEnabled}
-              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50 dark:border-white dark:bg-slate-800"
+              onChange={(e) => handleNotifyDay(e.target.checked)}
+              disabled={!settings.notificationsEnabled || isSaving} // ✅ notificationsEnabled вместо emailNotificationsEnabled
+              className="h-4 w-4 rounded border-slate-300 bg-white text-sky-600 focus:ring-sky-500 disabled:opacity-50 dark:border-white dark:bg-slate-800"
+              aria-label={t("settings.notifications.beforeDay")}
             />
           </label>
-          <label className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+
+          {/* Напоминание за час */}
+          <label className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
             <span>{t("settings.notifications.beforeHour")}</span>
             <input
               type="checkbox"
+              id="notify-hour"
               checked={settings.notifyBeforeHour}
-              onChange={(e) => {
-                const value = e.target.checked;
-                setSettings((prev) => ({ ...prev, notifyBeforeHour: value }));
-                updateUserSettings({ notify_before_hour: value });
-              }}
-              disabled={!settings.emailNotificationsEnabled}
-              className="h-4 w-4 rounded border-slate-300 disabled:opacity-50 dark:border-white dark:bg-slate-800"
+              onChange={(e) => handleNotifyHour(e.target.checked)}
+              disabled={!settings.notificationsEnabled || isSaving} // ✅ notificationsEnabled вместо emailNotificationsEnabled
+              className="h-4 w-4 rounded border-slate-300 bg-white text-sky-600 focus:ring-sky-500 disabled:opacity-50 dark:border-white dark:bg-slate-800"
+              aria-label={t("settings.notifications.beforeHour")}
             />
           </label>
         </div>
-      </div>
+      </section>
 
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
-          {t("settings.security.title")}
-        </h3>
+      {/* Безопасность */}
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-white">{t("settings.security.title")}</h2>
+        
+        {/* Форма смены пароля */}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-              {t("settings.security.oldPassword")}
-            </label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="new-password" className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.security.newPassword")}
             </label>
             <input
+              id="new-password"
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              disabled={isSaving}
+              placeholder={t("auth.register.passwordHint")}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 disabled:opacity-50 dark:border-white dark:bg-slate-800 dark:text-white"
+              aria-label={t("settings.security.newPassword")}
             />
           </div>
-          <div className="space-y-1 md:col-span-2">
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+          <div className="space-y-1">
+            <label htmlFor="confirm-password" className="block text-xs font-medium text-slate-700 dark:text-slate-300">
               {t("settings.security.confirmPassword")}
             </label>
             <input
+              id="confirm-password"
               type="password"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 dark:border-white dark:bg-slate-800 dark:text-white"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isSaving}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2 disabled:opacity-50 dark:border-white dark:bg-slate-800 dark:text-white"
+              aria-label={t("settings.security.confirmPassword")}
             />
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <button className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
-            {t("settings.security.updatePassword")}
+          <button 
+            type="button"
+            onClick={handleChangePassword}
+            disabled={isSaving || !newPassword || !confirmPassword}
+            className="rounded-lg bg-[#EC003F] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#D10037] disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+          >
+            {isSaving ? t("common.saving") : t("settings.security.updatePassword")}
           </button>
           <button
             type="button"
             onClick={handleSignOutAll}
-            className="text-xs font-medium text-rose-700 hover:underline dark:text-rose-400"
+            className="text-xs font-medium text-[#D53141] hover:underline focus:outline-none focus:ring-2 focus:ring-rose-400 dark:text-rose-400 rounded"
           >
             {t("settings.security.logoutAll")}
           </button>
         </div>
+        
+        {/* Сообщения об успехе/ошибке */}
+        {passwordError && (
+          <p className="text-xs text-destructive mt-2" role="alert">
+            {passwordError}
+          </p>
+        )}
+        {passwordSuccess && (
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2" role="status">
+            {t("settings.security.passwordUpdated")}
+          </p>
+        )}
+      </section>
+
+      {/* Статус сохранения / ошибки */}
+      <div className="min-h-[1.25rem]">
+        {isSaving && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 animate-pulse">
+            {t("common.saving")}
+          </p>
+        )}
+        {saveError && !isSaving && (
+          <p className="text-xs text-rose-600 dark:text-rose-400" role="alert">
+            {saveError}
+          </p>
+        )}
       </div>
     </div>
   );
 }
-
