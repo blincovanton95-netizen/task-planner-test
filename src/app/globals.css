@@ -1,45 +1,51 @@
 @import "tailwindcss";
 
+/* Настройка варианта dark для Tailwind */
+@variant dark (&:is(.dark *));
+
+/* Базовые переменные (Светлая тема по умолчанию) */
 :root {
   --background: #f3f4f6;
   --foreground: #0f172a;
 }
 
+/* Темная тема (активируется ТОЛЬКО классом .dark) */
+.dark {
+  --background: #020617;
+  --foreground: #e5e7eb;
+}
+
+/* Инициализация темы Tailwind */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-theme: color 0.3s ease; 
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    --foreground: #e5e7eb;
-  }
-}
-
+/* Глобальные стили */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease; 
+  margin: 0;
+  min-height: 100vh;
 }
 
-*,
-*::before,
-*::after {
+/* Сброс и доступность */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
 button {
   cursor: pointer;
+  background: none;
+  border: none;
 }
 
-input,
-textarea,
-select,
-button {
+input, textarea, select, button {
   font: inherit;
+  color: inherit;
 }
-
